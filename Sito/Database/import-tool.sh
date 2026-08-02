@@ -8,7 +8,8 @@ echo "4) Riassunti (importriassunti.sql)"
 echo "5) Studi (importstudi.sql)"
 echo "6) Vocabolario (importvocab.sql)"
 echo "7) Statistiche (importstatistiche.sql)"
-echo "ALL) All of the above"
+echo "8) Brani (importbrani.sql)"
+echo "a) All of the above"
 
 read -p "> " choice
 
@@ -41,7 +42,10 @@ case "$choice" in
   7)
     SELECTED+=("importstatistiche.sql")
     ;;
-  all)
+  8)
+    SELECTED+=("importbrani.sql")
+    ;;
+  a)
     do_merge=true
     SELECTED+=(
       "import.sql"
@@ -51,6 +55,7 @@ case "$choice" in
       "importstudi.sql"
       "importvocab.sql"
       "importstatistiche.sql"
+      "importbrani.sql"
     )
     ;;
   *)
@@ -61,8 +66,9 @@ esac
 
 if [ "$do_merge" = true ]; then
   docker compose exec -T db sh -c 'cd /var/lib/mysql-files/data && \
-	  echo "Merging commentpulpito.txt and commentillustrator.txt..." && \
+	  echo "Merging commentpulpitoA.txt & commentpulpitoB.txt -> commentpulpito.txt" && \
     cat commentpulpitoA.txt commentpulpitoB.txt > commentpulpito.txt && \
+    echo "Merging commentillustratoreA.txt & commentillustratoreB.txt -> commentillustratore.txt" && \
     cat commentillustratoreA.txt commentillustratoreB.txt > commentillustratore.txt'
 fi
 
