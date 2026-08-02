@@ -1,10 +1,10 @@
-#nota: quando si usa con MyPHPAdmin, � importante togliere il campo "Campo composto da".
+#nota: quando si usa con MyPHPAdmin, è importante togliere il campo "Campo composto da".
 # poi usa "Import", non compresso, caratteri utf-8 (anche se ci sono caratteri>128), CSV with LOAD DATA, Campo terminato da |, campo composto da (vuoto), campo impedito da \, nomi colonne, con LOCAL
-#se il server Aruba non permette LOAD DATA, bisogna usare Import, non compresso [anzi, pi� veloce zippare prima], utf-8 [anzi iso 8859-1 funziona meglio], CSV, | (vuoto) \ nomi colonne, e un file importato senza | alla fine di ogni riga
+#se il server Aruba non permette LOAD DATA, bisogna usare Import, non compresso [anzi, più veloce zippare prima], utf-8 [anzi iso 8859-1 funziona meglio], CSV, | (vuoto) \ nomi colonne, e un file importato senza | alla fine di ogni riga
 # new best method: use addtodb.php to import CSV files FTP'ed to root directory of site
 
 #nota: per computer locale, adesso i file dovrebbero essere utf-8, e meglio provare a importare in utf-8, almeno nella tabella Versetti
-#ma cos� forse non funziona sul server
+#ma così forse non funziona sul server
 
 DROP DATABASE IF EXISTS laparola_testo;
 CREATE DATABASE laparola_testo;
@@ -38,7 +38,6 @@ LOAD DATA LOCAL INFILE "commenttesorodavide.txt" INTO TABLE Versetti FIELDS TERM
 LOAD DATA LOCAL INFILE "commentcalvino.txt" INTO TABLE Versetti FIELDS TERMINATED BY '|' (id_t,Libro,Capitolo,Versetto,Testo);
 LOAD DATA LOCAL INFILE "commentginevra.txt" INTO TABLE Versetti FIELDS TERMINATED BY '|' (id_t,Libro,Capitolo,Versetto,Testo);
 LOAD DATA LOCAL INFILE "volg.txt" INTO TABLE Versetti FIELDS TERMINATED BY '|' (id_t,Libro,Capitolo,Versetto,Testo);
-
 
 DROP TABLE IF EXISTS Versioni;
 CREATE TABLE Versioni (id_t SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY NOT NULL, Nome TINYTEXT NOT NULL, Libri SMALLINT UNSIGNED NOT NULL DEFAULT 66, Lingua CHAR(2) NOT NULL DEFAULT 'it', Tipo CHAR(1) NOT NULL DEFAULT 'v');
@@ -83,6 +82,7 @@ LOAD DATA LOCAL INFILE "r2c.txt" INTO TABLE Apparenze FIELDS TERMINATED BY '|' (
 LOAD DATA LOCAL INFILE "riccc.txt" INTO TABLE Apparenze FIELDS TERMINATED BY '|' (id_p,id_v);
 LOAD DATA LOCAL INFILE "tintc.txt" INTO TABLE Apparenze FIELDS TERMINATED BY '|' (id_p,id_v);
 LOAD DATA LOCAL INFILE "nr94c.txt" INTO TABLE Apparenze FIELDS TERMINATED BY '|' (id_p,id_v);
-LOAD DATA LOCAL INFILE "volg.txt" INTO TABLE Apparenze FIELDS TERMINATED BY '|' (id_p,id_v);
+LOAD DATA LOCAL INFILE "volgc.txt" INTO TABLE Apparenze FIELDS TERMINATED BY '|' (id_p,id_v);
+
 DROP TABLE IF EXISTS Statistiche;
-CREATE TABLE Statistiche (nr TINYINT UNSIGNED, cei TINYINT UNSIGNED, nd TINYINT UNSIGNED, r2 TINYINT UNSIGNED, bdg TINYINT UNSIGNED, riv TINYINT UNSIGNED, ricc TINYINT UNSIGNED, tint TINYINT UNSIGNED, mar TINYINT UNSIGNED, dio TINYINT UNSIGNED, volg TINYINT UNSIGNED, comm TINYINT UNSIGNED, commnt TINYINT UNSIGNED, rif TINYINT UNSIGNED, commpulpito TINYINT UNSIGNED, commcalvino TINYINT UNSIGNED, commginevra TINYINT UNSIGNED, tipo CHAR(1) NOT NULL, paese VARCHAR(3), mese TINYINT UNSIGNED, anno SMALLINT UNSIGNED);
+CREATE TABLE Statistiche (nr TINYINT UNSIGNED, cei TINYINT UNSIGNED, nd TINYINT UNSIGNED, r2 TINYINT UNSIGNED, bdg TINYINT UNSIGNED, riv TINYINT UNSIGNED, ricc TINYINT UNSIGNED, tint TINYINT UNSIGNED, mar TINYINT UNSIGNED, dio TINYINT UNSIGNED, comm TINYINT UNSIGNED, commnt TINYINT UNSIGNED, rif TINYINT UNSIGNED, commpulpito TINYINT UNSIGNED, commillustratore TINYINT UNSIGNED, commgill TINYINT UNSIGNED, nr94 TINYINT UNSIGNED, commbarnes TINYINT UNSIGNED, commmeyer TINYINT UNSIGNED, commtesoro TINYINT UNSIGNED, commhenry TINYINT UNSIGNED, commcalvino TINYINT UNSIGNED, commginevra TINYINT UNSIGNED, volg TINYINT UNSIGNED, tipo CHAR(1) NOT NULL, paese VARCHAR(3), mese TINYINT UNSIGNED, anno SMALLINT UNSIGNED);

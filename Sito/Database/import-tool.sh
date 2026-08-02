@@ -7,6 +7,7 @@ echo "3) Quiz (importquiz.sql)"
 echo "4) Riassunti (importriassunti.sql)"
 echo "5) Studi (importstudi.sql)"
 echo "6) Vocabolario (importvocab.sql)"
+echo "7) Statistiche (importstatistiche.sql)"
 echo "ALL) All of the above"
 
 read -p "> " choice
@@ -37,6 +38,9 @@ case "$choice" in
   6)
     SELECTED+=("importvocab.sql")
     ;;
+  7)
+    SELECTED+=("importstatistiche.sql")
+    ;;
   all)
     do_merge=true
     SELECTED+=(
@@ -46,6 +50,7 @@ case "$choice" in
       "importriassunti.sql"
       "importstudi.sql"
       "importvocab.sql"
+      "importstatistiche.sql"
     )
     ;;
   *)
