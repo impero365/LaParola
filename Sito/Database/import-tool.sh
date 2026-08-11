@@ -9,6 +9,7 @@ echo "5) Studi (importstudi.sql)"
 echo "6) Vocabolario (importvocab.sql)"
 echo "7) Statistiche (importstatistiche.sql)"
 echo "8) Brani (importbrani.sql)"
+echo "9) NT manoscritti/greco (ntmss/import.txt)"
 echo "a) All of the above"
 
 read -p "> " choice
@@ -18,6 +19,7 @@ choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]' | sed 's/^[ \t]*//;s/[ \t]*
 
 SELECTED=()
 do_merge=false
+do_ntmss=false
 
 case "$choice" in
   1)
@@ -45,8 +47,12 @@ case "$choice" in
   8)
     SELECTED+=("importbrani.sql")
     ;;
+  9)
+    do_ntmss=true
+    ;;
   a)
     do_merge=true
+    do_ntmss=true
     SELECTED+=(
       "import.sql"
       "importinterlineare.sql"
@@ -80,3 +86,14 @@ for f in "${SELECTED[@]}"; do
     mysql --local-infile=1 -u"$MYSQL_USER" < "$f"
   '
 done
+
+# NTMSS data lives under Database/ntmss; LOAD DATA paths in import.txt are relative
+# to that directory, so the client must run with CWD set there.
+if [ "$do_ntmss" = true ]; then
+  docker compose exec -T db sh -c '
+    cd /var/lib/mysql-files/data/ntmss &&
+    echo "Importing ntmss/import.txt..." &&
+    export MYSQL_PWD=$MYSQL_PASSWORD &&
+    mysql --local-infile=1 -u"$MYSQL_USER" < import.txt
+  '
+fi
