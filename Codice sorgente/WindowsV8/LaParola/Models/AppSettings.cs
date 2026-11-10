@@ -1,5 +1,6 @@
 using LaParola.ToolViews;
 using System.Windows;
+using System.Windows.Media;
 
 namespace LaParola.Models;
 
@@ -14,6 +15,7 @@ public class ViewerWindowState
     public string Titolo { get; set; } = "";
     public bool IsSommarioVisibile { get; set; } = false;
     public int SincGruppo { get; set; } = 0;
+    public int Zoom { get; set; } = 100;
 }
 
 public enum ThemeState
@@ -40,11 +42,16 @@ public class AppSettings
 
     public FormatoTesto Formato { get; set; } = new FormatoTesto();
 
+    public string LibriNomi { get; set; } = "";
+    public string LibriAbbreviazioniUsate { get; set; } = "";
+    public string LibriAbbreviazioniRiconosciute { get; set; } = "";
+
     public string VoceSintesiVocale { get; set; } = "";
     public bool VoceDelTesto { get; set; } = true;
     public double VelocitaVoce { get; set; } = 1.0;
     public int VolumeVoce { get; set; } = 100;
     public bool VoceEvidenzia { get; set; } = false;
+    public Color VoceEvidenziaColore { get; set; } = Colors.Red;
 
     public string UltimaBibbia { get; set; } = "";
     public string UltimaBibbiaCompleta { get; set; } = "";
@@ -52,13 +59,18 @@ public class AppSettings
     public string UltimaCartellaImportare { get; set; } = "";
     public string UltimaCartellaImportarePDF { get; set; } = "";
     public string UltimaCartellaImportareRtf { get; set; } = "";
+    public string UltimaCartellaEsportareFile { get; set; } = "";
+    public string UltimaCartellaEsportareCartella { get; set; } = "";
 
     public bool EditorChiudere { get; set; } = false;
     public bool IpertestoTooltip { get; set; } = true;
     public bool IpertestoDizionario { get; set; } = true;
-    public int ControlloMessaggi { get; set; } = 1;
+    public int IntervalloGiorniControlloMessaggi { get; set; } = 1;
     public DateTime UltimoControlloMessaggi { get; set; } = DateTime.MinValue;
     public int UltimoMessaggioControllatoId { get; set; } = 0;
+    public int IntervalloGiorniControlloTesti { get; set; } = 7; // Check every 7 days
+    public DateTime UltimoControlloAggiornamentiTesti { get; set; } = DateTime.MinValue;
+
     public string BibbiaPreferita1 { get; set; } = "";
     public string BibbiaPreferita2 { get; set; } = "";
     public string BibbiaPreferita3 { get; set; } = "";
@@ -72,13 +84,32 @@ public class AppSettings
     public LibraryToolState LibraryState { get; set; } = new LibraryToolState();
 
     public string RicercaTestoSelezionato { get; set; } = "";
+    public bool RicercaScegliParolaAperta { get; set; } = false;
 
     public List<string> MostraVersioniTutte { get; set; } = [];
     public List<string> MostraVersioniSelezionate { get; set; } = [];
     public bool MostraAlternare { get; set; } = false;
 
+    public string CreaChiaveVersioneSelezionata { get; set; } = "";
+    public int CreaChiaveNumeroMinimo { get; set; } = 1;
+    public bool CreaChiaveConRiferimenti { get; set; } = true;
+    public TipoChiave CreaChiaveTipo { get; set; } = TipoChiave.Parole;
+    public OrdineChiave CreaChiaveOrdine { get; set; } = OrdineChiave.Alfabetico;
+    public bool CreaChiaveEscludiParole { get; set; } = true;
+    public string CreaChiaveParoleDaEscludere { get; set; } = "*";
+
+    // Brani simili
+    public string BraniSimiliVersioneSelezionata { get; set; } = "";
+    public int BraniSimiliNumero { get; set; } = 10;
+    public TipoBrani BraniSimiliVersetti { get; set; } = TipoBrani.Versetti;
+
+    public string EsportaBibliotecaInformazioni { get; set; } = "-";
+    public int EsportaBibliotecaOrdine { get; set; } = 0;
+    public int EsportaBibliotecaFormato { get; set; } = 0;
+    public string EsportaBibliotecaCartella { get; set; } = "";
+
     // Reference search
     public bool ReferenceSearchTocVisible { get; set; } = true;
 
-    public HashSet<string> TestiNascosti { get; set; } = new HashSet<string>();
+    public HashSet<string> TestiNascosti { get; set; } = [];
 }

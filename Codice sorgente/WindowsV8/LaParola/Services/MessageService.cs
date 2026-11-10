@@ -23,7 +23,7 @@ namespace LaParola.Services
 
         public static async Task CheckForNewMessagesAsync()
         {
-            int CheckIntervalDays = MainWindow.settings.ControlloMessaggi;
+            int CheckIntervalDays = MainWindow.settings.IntervalloGiorniControlloMessaggi;
             // 1. Check if the user opted out
             if (CheckIntervalDays == 0)
                 return;
@@ -39,7 +39,6 @@ namespace LaParola.Services
 
             // Update timestamp immediately
             MainWindow.settings.UltimoControlloMessaggi = DateTime.Now;
-            App.Settings.Save(MainWindow.settings);
 
             try
             {
@@ -58,7 +57,6 @@ namespace LaParola.Services
                 {
                     // Mark everything currently on the server as "read" so they start clean
                     MainWindow.settings.UltimoMessaggioControllatoId = maxServerId;
-                    App.Settings.Save(MainWindow.settings);
 
                     // OPTIONAL: If you want them to see just the ONE latest message on their first run, 
                     // uncomment the lines below:
@@ -89,7 +87,6 @@ namespace LaParola.Services
                 // Always update the last read ID to the highest server ID 
                 // to prevent old expired messages from being evaluated next time.
                 MainWindow.settings.UltimoMessaggioControllatoId = maxServerId;
-                App.Settings.Save(MainWindow.settings);
             }
             catch (Exception)
             {

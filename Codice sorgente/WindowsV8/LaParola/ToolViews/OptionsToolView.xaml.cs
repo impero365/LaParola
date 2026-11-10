@@ -6,6 +6,7 @@ using LaParola.Utilities;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Speech.Synthesis;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -14,37 +15,27 @@ namespace LaParola.ToolViews;
 
 public partial class OptionsToolView : UserControl
 {
-    readonly bool nonSalvare = true;
-
-    // TODO2 color picker per highlight sintesi - di Extended.Wpf.Toolkit?
-    /*
-      <Window x:Class="MyApp.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit">
-    <Grid Padding="20">
-        <!-- ColorPicker Dropdown -->
-        <xctk:ColorPicker x:Name="MyColorPicker" 
-                          SelectedColorChanged="MyColorPicker_SelectedColorChanged"
-                          DisplayColorAndName="True"
-                          Width="200" 
-                          Height="30"/>
-    </Grid>
-</Window>
-
-    private void MyColorPicker_SelectedColorChanged(object sender, RoutedPropertyChangedEventArgs<Color?> e)
-{
-    if (e.NewValue.HasValue)
-    {
-        Color selectedColor = e.NewValue.Value;
-        // Use WPF Color directly
-    }
-}
-     */
     // TODO2 - reimposta default settings, help on export/import settings
     // TODO2 - results in same editor window or new
     // TODO2 - References: context in searches
-    // TODO2 book names
+
+    readonly bool nonSalvare = true;
+
+    public class HighlightColorItem
+    {
+        public string Name { get; set; } = "";
+        public Color Color { get; set; }
+        public SolidColorBrush Brush => new(Color);
+    }
+
+    public class LibroModel
+    {
+        public byte Id { get; set; }
+        public string Nome { get; set; } = string.Empty;
+        public string AbbreviazioneUsata { get; set; } = string.Empty;
+        public string AbbreviazioniRiconosciute { get; set; } = string.Empty;
+    }
+    private readonly ObservableCollection<LibroModel> libriCollection = [];
 
     public OptionsToolView()
     {
@@ -124,13 +115,15 @@ public partial class OptionsToolView : UserControl
             LanguageCombo.SelectedIndex = 0;
         }
 
+        CaricaDataGridLibri();
+
         List<string> fonts = [.. Fonts.SystemFontFamilies
             .Select(f => f.Source)
             .OrderBy(f => f)];
 
         InitializeTextsPreferences(); //deve essere fatto dopo che Testi è pronto
 
-        switch (MainWindow.settings?.ControlloMessaggi)
+        switch (MainWindow.settings?.IntervalloGiorniControlloMessaggi)
         {
             case 0:
                 AggiornamentiMessaggiMai.IsChecked = true;
@@ -148,8 +141,35 @@ public partial class OptionsToolView : UserControl
                 AggiornamentiMessaggiGiorno.IsChecked = true;
                 break;
         }
+        switch (MainWindow.settings?.IntervalloGiorniControlloTesti)
+        {
+            case 0:
+                AggiornamentiTestiMai.IsChecked = true;
+                break;
+            case 1:
+                AggiornamentiTestiGiorno.IsChecked = true;
+                break;
+            case 7:
+                AggiornamentiTestiSettimana.IsChecked = true;
+                break;
+            case 30:
+                AggiornamentiTestiMese.IsChecked = true;
+                break;
+            default:
+                AggiornamentiTestiSettimana.IsChecked = true;
+                break;
+        }
 
         nonSalvare = false;
+
+        this.Unloaded += OptionsToolView_Unloaded;
+    }
+
+    private void OptionsToolView_Unloaded(object sender, RoutedEventArgs e)
+    {
+        GridLibri.CommitEdit(DataGridEditingUnit.Row, true);
+
+        SalvaDataGridLibri();
     }
 
     internal void InitializeTextsPreferences()
@@ -301,6 +321,21 @@ public partial class OptionsToolView : UserControl
         VoceVolumeValore.Text = MainWindow.settings.VolumeVoce + "%";
 
         VoceEvidenzia.IsChecked = MainWindow.settings.VoceEvidenzia;
+
+        List<HighlightColorItem> items = [
+            new() { Name = (string)Application.Current.TryFindResource("ColorRed") ?? "Red", Color = Colors.Red },
+            new() { Name = (string)Application.Current.TryFindResource("ColorOrange") ?? "Orange", Color = Colors.Orange },
+            new() { Name = (string)Application.Current.TryFindResource("ColorGold") ?? "Gold", Color = Colors.Gold },
+            new() { Name = (string)Application.Current.TryFindResource("ColorYellow") ?? "Yellow", Color = Colors.Yellow },
+            new() { Name = (string)Application.Current.TryFindResource("ColorGreen") ?? "Green", Color = Colors.LightGreen },
+            new() { Name = (string)Application.Current.TryFindResource("ColorCyan") ?? "Cyan", Color = Colors.Cyan },
+            new() { Name = (string)Application.Current.TryFindResource("ColorLightBlue") ?? "Light Blue", Color = Colors.LightSkyBlue },
+            new() { Name = (string)Application.Current.TryFindResource("ColorPurple") ?? "Purple", Color = Colors.Plum },
+            new() { Name = (string)Application.Current.TryFindResource("ColorPink") ?? "Pink", Color = Colors.Pink }
+        ];
+
+        ColorPickerEvidenzia.ItemsSource = items;
+        ColorPickerEvidenzia.SelectedValue = items.FirstOrDefault(i => i.Color == MainWindow.settings.VoceEvidenziaColore);
     }
 
     /// <summary>Richiesto dall'utente: "Microsoft Cosimo" -> "Cosimo" nell'elenco voci - solo
@@ -321,6 +356,42 @@ public partial class OptionsToolView : UserControl
             return string.IsNullOrEmpty(codice) ? "" : $" ({codice})";
         }
         catch { return ""; }
+    }
+
+    /// <summary>
+    /// Loads data from Testi arrays/dictionary into the DataGrid.
+    /// </summary>
+    public void CaricaDataGridLibri()
+    {
+        libriCollection.Clear();
+
+        // Fetch recognized abbreviations array (73 items, 0 to 72)
+        string[] abbreviazioni = MainWindow.Testi.LibriAbbreviazioniRiconosciute.AbbreviazioniPerLibro();
+
+        for (byte i = 1; i <= 73; i++)
+        {
+            string rawAbbr = abbreviazioni[i - 1] ?? string.Empty;
+
+            // Remove trailing comma safely
+            string abbFormatted = rawAbbr.TrimEnd(',');
+
+            libriCollection.Add(new LibroModel
+            {
+                Id = i,
+                Nome = MainWindow.Testi.libriNomi[i] ?? string.Empty,
+                AbbreviazioneUsata = MainWindow.Testi.libriAbbreviazioniUsate[i] ?? string.Empty,
+                AbbreviazioniRiconosciute = abbFormatted
+            });
+        }
+
+        GridLibri.ItemsSource = libriCollection;
+    }
+
+    private void ColorPickerEvidenzia_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (nonSalvare) return;
+
+        MainWindow.settings.VoceEvidenziaColore = ColorPickerEvidenzia.SelectedValue is HighlightColorItem item ? item.Color : Colors.Red;
     }
 
     private static void ApplicaFontAdEsempio(TextBlock tbEsempio, string categoria)
@@ -379,8 +450,7 @@ public partial class OptionsToolView : UserControl
 
     private void HelpFlyout_OnHelpClicked(object sender, RoutedEventArgs e)
     {
-        // TODO2: Open correct help section
-        MessageBox.Show("Open Help Centre");
+        MainWindow.MostraGuida((string)(Application.Current.TryFindResource("OpzioniTitolo") ?? "Options"));
     }
 
     private void OptionsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -422,6 +492,9 @@ public partial class OptionsToolView : UserControl
                 case "NodeReferences":
                     targetElement = SectionReferences;
                     break;
+                case "NodeBooks":
+                    targetElement = SectionBooks;
+                    break;
                 case "NodeFonts":
                     targetElement = SectionFonts;
                     break;
@@ -438,7 +511,10 @@ public partial class OptionsToolView : UserControl
                     targetElement = SectionAggiornamentiHeader;
                     break;
                 case "NodeMessages":
-                    targetElement = SectionMessages;
+                    targetElement = SectionMessaggi;
+                    break;
+                case "NodeTextUpdates":
+                    targetElement = SectionAggiornamentiTesti;
                     break;
             }
 
@@ -463,7 +539,10 @@ public partial class OptionsToolView : UserControl
         switch (((Button)sender).Name)
         {
             case "Modifica":
-                dlg = new FontDialog(allowSuperscript: false, f.FontNome, f.FontDimensione, f.FontGrassetto, f.FontCorsivo, f.FontSottolineato, false, f.FontColore.ToString());
+                dlg = new FontDialog(allowSuperscript: false, f.FontNome, f.FontDimensione, f.FontGrassetto, f.FontCorsivo, f.FontSottolineato, false, f.FontColore.ToString())
+                {
+                    Owner = Window.GetWindow(this)
+                };
 
                 if (dlg.ShowDialog() == true)
                 {
@@ -483,7 +562,10 @@ public partial class OptionsToolView : UserControl
                 }
                 break;
             case "ModificaGreco":
-                dlg = new FontDialog(allowSuperscript: false, f.FontGrecoNome, f.FontGrecoDimensione, f.FontGrecoGrassetto, f.FontGrecoCorsivo, f.FontGrecoSottolineato, false, f.FontGrecoColore.ToString());
+                dlg = new FontDialog(allowSuperscript: false, f.FontGrecoNome, f.FontGrecoDimensione, f.FontGrecoGrassetto, f.FontGrecoCorsivo, f.FontGrecoSottolineato, false, f.FontGrecoColore.ToString())
+                {
+                    Owner = Window.GetWindow(this)
+                };
 
                 if (dlg.ShowDialog() == true)
                 {
@@ -503,7 +585,10 @@ public partial class OptionsToolView : UserControl
                 }
                 break;
             case "ModificaEbraico":
-                dlg = new FontDialog(allowSuperscript: false, f.FontEbraicoNome, f.FontEbraicoDimensione, f.FontEbraicoGrassetto, f.FontEbraicoCorsivo, f.FontEbraicoSottolineato, false, f.FontEbraicoColore.ToString());
+                dlg = new FontDialog(allowSuperscript: false, f.FontEbraicoNome, f.FontEbraicoDimensione, f.FontEbraicoGrassetto, f.FontEbraicoCorsivo, f.FontEbraicoSottolineato, false, f.FontEbraicoColore.ToString())
+                {
+                    Owner = Window.GetWindow(this)
+                };
 
                 if (dlg.ShowDialog() == true)
                 {
@@ -523,7 +608,10 @@ public partial class OptionsToolView : UserControl
                 }
                 break;
             case "ModificaRicerca":
-                dlg = new FontDialog(allowSuperscript: false, f.FontRicercaNome, f.FontRicercaDimensione, f.FontRicercaGrassetto, f.FontRicercaCorsivo, f.FontRicercaSottolineato, false, f.FontRicercaColore.ToString());
+                dlg = new FontDialog(allowSuperscript: false, f.FontRicercaNome, f.FontRicercaDimensione, f.FontRicercaGrassetto, f.FontRicercaCorsivo, f.FontRicercaSottolineato, false, f.FontRicercaColore.ToString())
+                {
+                    Owner = Window.GetWindow(this)
+                };
 
                 if (dlg.ShowDialog() == true)
                 {
@@ -543,7 +631,10 @@ public partial class OptionsToolView : UserControl
                 }
                 break;
             case "ModificaRiferimenti":
-                dlg = new FontDialog(allowSuperscript: true, f.FontRiferimentoNome, f.FontRiferimentoDimensione, f.FontRiferimentoGrassetto, f.FontRiferimentoCorsivo, f.FontRiferimentoSottolineato, f.RiferimentoApice, f.FontRiferimentoColore.ToString());
+                dlg = new FontDialog(allowSuperscript: true, f.FontRiferimentoNome, f.FontRiferimentoDimensione, f.FontRiferimentoGrassetto, f.FontRiferimentoCorsivo, f.FontRiferimentoSottolineato, f.RiferimentoApice, f.FontRiferimentoColore.ToString())
+                {
+                    Owner = Window.GetWindow(this)
+                };
 
                 if (dlg.ShowDialog() == true)
                 {
@@ -566,7 +657,6 @@ public partial class OptionsToolView : UserControl
             default:
                 break;
         }
-        App.Settings.Save(MainWindow.settings);
     }
 
     private void ComboPref_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -576,7 +666,6 @@ public partial class OptionsToolView : UserControl
         MainWindow.settings.BibbiaPreferita1 = ComboPref1.SelectedValue as string ?? string.Empty;
         MainWindow.settings.BibbiaPreferita2 = ComboPref2.SelectedValue as string ?? string.Empty;
         MainWindow.settings.BibbiaPreferita3 = ComboPref3.SelectedValue as string ?? string.Empty;
-        App.Settings.Save(MainWindow.settings);
     }
 
     private void ComboDizionario_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -588,7 +677,140 @@ public partial class OptionsToolView : UserControl
         MainWindow.settings.DizionarioGreco = ComboDizionarioGreco.SelectedValue as string ?? string.Empty;
         MainWindow.settings.DizionarioEbraico = ComboDizionarioEbraico.SelectedValue as string ?? string.Empty;
         MainWindow.settings.DizionarioLatino = ComboDizionarioLatino.SelectedValue as string ?? string.Empty;
-        App.Settings.Save(MainWindow.settings);
+    }
+
+    private void BtnPredefinitiItaliano_Click(object sender, RoutedEventArgs e)
+    {
+        CambiaLingua("it");
+    }
+
+    private void BtnPredefinitiInglese_Click(object sender, RoutedEventArgs e)
+    {
+        CambiaLingua("en");
+    }
+
+    private void CambiaLingua(string lingua)
+    {
+        string nomi, abbUsate, abbRicono;
+        if (lingua == "it")
+        {
+            nomi = Texts.LibriNomiItaliano;
+            abbUsate = Texts.LibriAbbreviazioniUsateItaliano;
+            abbRicono = Texts.LibriAbbreviazioniRiconosciuteItaliano;
+        }
+        else if (lingua == "en")
+        {
+            nomi = Texts.LibriNomiInglese;
+            abbUsate = Texts.LibriAbbreviazioniUsateInglese;
+            abbRicono = Texts.LibriAbbreviazioniRiconosciuteInglese;
+        }
+        else
+        {
+            return;
+        }
+
+        MainWindow.Testi.libriNomi = nomi.Split('|');
+        MainWindow.Testi.libriAbbreviazioniUsate = abbUsate.Split('|');
+        string[] libriAbbRic = abbRicono.Split('|', StringSplitOptions.RemoveEmptyEntries);
+        string[] abbreviazioniDiLibro;
+        MainWindow.Testi.LibriAbbreviazioniRiconosciute.Clear();
+        for (byte i = 1; i <= 73; ++i)
+        {
+            abbreviazioniDiLibro = libriAbbRic[i - 1].Split(',');
+            foreach (string abbreviazioneDiLibro in abbreviazioniDiLibro)
+                MainWindow.Testi.LibriAbbreviazioniRiconosciute[abbreviazioneDiLibro] = i;
+        }
+
+        CaricaDataGridLibri();
+        SalvaLibriASettings(libriAbbRic);
+    }
+
+    private string _valueBeforeEdit = string.Empty;
+
+    private void GridLibri_PreparingCellForEdit(object sender, DataGridPreparingCellForEditEventArgs e)
+    {
+        // Capture the original text before the user modifies it
+        if (e.EditingElement is TextBox tb)
+        {
+            _valueBeforeEdit = tb.Text;
+        }
+    }
+
+    private void GridLibri_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    {
+        // Ignore edits cancelled by pressing ESC
+        if (e.EditAction == DataGridEditAction.Commit)
+        {
+            // If the user left the cell empty or filled with spaces, restore the original value
+            if (e.EditingElement is TextBox tb && string.IsNullOrWhiteSpace(tb.Text))
+            {
+                tb.Text = _valueBeforeEdit;
+            }
+
+            // Wait for WPF to write the new value into the LibroModel property
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                SalvaDataGridLibri();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+    }
+
+    /// <summary>
+    /// Saves edited data from the DataGrid back into Testi arrays/dictionary.
+    /// </summary>
+    public void SalvaDataGridLibri()
+    {
+        // Commit any active cell editing before saving
+        GridLibri.CommitEdit(DataGridEditingUnit.Row, true);
+
+        string[] libriAbbRiconosciute = new string[74];
+        MainWindow.Testi.LibriAbbreviazioniRiconosciute.Clear();
+
+        foreach (LibroModel riga in libriCollection)
+        {
+            byte i = riga.Id;
+
+            MainWindow.Testi.SetLibroNome(i, riga.Nome ?? string.Empty);
+            MainWindow.Testi.SetLibroAbbreviazioneUsata(i, riga.AbbreviazioneUsata ?? string.Empty);
+
+            if (!string.IsNullOrWhiteSpace(riga.AbbreviazioniRiconosciute))
+            {
+                string[] abbList = riga.AbbreviazioniRiconosciute.Split(
+                    ',',
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                );
+
+                libriAbbRiconosciute[i] = riga.AbbreviazioniRiconosciute;
+                foreach (string abb in abbList)
+                {
+                    try
+                    {
+                        MainWindow.Testi.LibriAbbreviazioniRiconosciute[abb] = i;
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Ignore duplicate abbreviations or null keys
+                    }
+                }
+            }
+        }
+
+        SalvaLibriASettings(libriAbbRiconosciute);
+    }
+
+    private static void SalvaLibriASettings(string[] abbreviazioniRiconosciute)
+    {
+        StringBuilder libriNomi = new("");
+        StringBuilder libriAbbreviazioniUsate = new("");
+
+        for (int i = 1; i <= 73; ++i)
+        {
+            libriNomi.Append('|').Append(MainWindow.Testi.GetLibroNome(i));
+            libriAbbreviazioniUsate.Append('|').Append(MainWindow.Testi.GetLibroAbbreviazioneUsata(i));
+        }
+        MainWindow.settings.LibriNomi = libriNomi.ToString(); // diventa "|Genesi|Esodo|...|Apocalisse"
+        MainWindow.settings.LibriAbbreviazioniUsate = libriAbbreviazioniUsate.ToString();
+        MainWindow.settings.LibriAbbreviazioniRiconosciute = String.Join("|", abbreviazioniRiconosciute);
     }
 
     private void SettingChanged(object sender, RoutedEventArgs e)
@@ -615,6 +837,7 @@ public partial class OptionsToolView : UserControl
         VoceVelocitaValore.Text = (int)VoceVelocita.Value + "/20";
         VoceVolumeValore.Text = (int)VoceVolume.Value + "%";
         _settings.VoceEvidenzia = VoceEvidenzia.IsChecked == true;
+        _settings.VoceEvidenziaColore = ColorPickerEvidenzia.SelectedValue is HighlightColorItem item ? item.Color : Colors.Red;
 
         TestoVisualizzato testoVisualizzatoPrecedente = _settings.Formato.TestoVisualizzato;
         TestoVisualizzato testoVisualizzatoAttuale = TestoVersetti.IsChecked == true ? TestoVisualizzato.Versetti :
@@ -684,30 +907,16 @@ public partial class OptionsToolView : UserControl
                 Services.LocalizationManager.ApplyLanguage(_settings.Lingua);
                 cambiaLingua = true;
 
-                string libriNomi, libriAbbUsate, libriAbbRic;
-                if (_settings.Lingua == "it")
+                string messaggio = lang == "it" ? "Vuoi usare anche i nomi e abbreviazioni dei libri della Bibbia in italiano?" : "Do you want to also use the English names and abbreviations of the Bible books?";
+                MessageBoxResult confirmResult =
+                    MessageBoxLPN.Show(Window.GetWindow(this),
+                    messaggio,
+                    (string)(Application.Current.TryFindResource("OpzioniLibriCambioLinguaTitolo") ?? "Language Change"),
+                    MessageBoxButton.YesNo);
+
+                if (confirmResult == MessageBoxResult.Yes)
                 {
-                    libriNomi = Texts.LibriNomiItaliano;
-                    libriAbbUsate = Texts.LibriAbbreviazioniUsateItaliano;
-                    libriAbbRic = Texts.LibriAbbreviazioniRiconosciuteItaliano;
-                }
-                else
-                {
-                    // default inglese, o in caso di lingua non riconosciuta
-                    libriNomi = Texts.LibriNomiInglese;
-                    libriAbbUsate = Texts.LibriAbbreviazioniUsateInglese;
-                    libriAbbRic = Texts.LibriAbbreviazioniRiconosciuteInglese;
-                }
-                MainWindow.Testi.libriNomi = libriNomi.Split('|');
-                MainWindow.Testi.libriAbbreviazioniUsate = libriAbbUsate.Split('|');
-                string[] libriAbbRicArray = libriAbbRic.Split('|', StringSplitOptions.RemoveEmptyEntries);
-                string[] abbreviazioniDiLibro;
-                MainWindow.Testi.LibriAbbreviazioniRiconosciute.Clear();
-                for (byte i = 1; i <= 73; ++i)
-                {
-                    abbreviazioniDiLibro = libriAbbRicArray[i - 1].Split(',');
-                    foreach (string abbreviazioneDiLibro in abbreviazioniDiLibro)
-                        MainWindow.Testi.LibriAbbreviazioniRiconosciute[abbreviazioneDiLibro] = i;
+                    CambiaLingua(lang);
                 }
             }
         }
@@ -716,9 +925,18 @@ public partial class OptionsToolView : UserControl
                   AggiornamentiMessaggiSettimana.IsChecked == true ? 7 :
                   AggiornamentiMessaggiMese.IsChecked == true ? 30 :
                   0;
-        if (agg != _settings.ControlloMessaggi)
+        if (agg != _settings.IntervalloGiorniControlloMessaggi)
         {
-            _settings.ControlloMessaggi = agg;
+            _settings.IntervalloGiorniControlloMessaggi = agg;
+        }
+
+        int aggTesti = AggiornamentiTestiGiorno.IsChecked == true ? 1 :
+                       AggiornamentiTestiSettimana.IsChecked == true ? 7 :
+                       AggiornamentiTestiMese.IsChecked == true ? 30 :
+                       0;
+        if (aggTesti != _settings.IntervalloGiorniControlloTesti)
+        {
+            _settings.IntervalloGiorniControlloTesti = aggTesti;
         }
 
         if (Application.Current.MainWindow is MainWindow mw)
@@ -748,8 +966,6 @@ public partial class OptionsToolView : UserControl
 
         if (cambiaTema)
             HoverPopup.CambiaTema();
-
-        App.Settings.Save(_settings);
     }
 
     private static void AggiornaDocumentiVisualizzazione()

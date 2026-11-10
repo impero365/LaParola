@@ -1,17 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml;
 
@@ -121,8 +112,7 @@ namespace LaParola.DocumentViews
 
         private void HelpFlyout_OnHelpClicked(object sender, RoutedEventArgs e)
         {
-            // TODO2: Open correct help section
-            MessageBox.Show("Open Help Centre");
+            MainWindow.MostraGuida((string)(Application.Current.TryFindResource("ImmagineTitolo") ?? "Image"));
         }
 
         private void PbImmagine_MouseUp(object sender, MouseButtonEventArgs e)

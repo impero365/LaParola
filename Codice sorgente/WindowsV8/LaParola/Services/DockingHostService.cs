@@ -1,15 +1,12 @@
 using AvalonDock;
 using AvalonDock.Layout;
-using LaParola.Dialogs;
 using LaParola.DocumentViews;
 using LaParola.ToolViews;
 using Microsoft.Win32;
 using System.Globalization;
 using System.IO;
-using System.Security.Principal;
 using System.Windows;
 using System.Windows.Documents;
-using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace LaParola.Services;
@@ -160,6 +157,16 @@ public class DockingHostService
                 v = new TextGeneratorToolView();
                 titolo = (string)(System.Windows.Application.Current.TryFindResource("MostraTitolo") ?? "Show Passage");
             }
+            else if (contentId == "tool.creachiave")
+            {
+                v = new CreaChiaveToolView();
+                titolo = (string)(System.Windows.Application.Current.TryFindResource("CreaChiaveTitolo") ?? "Create Concordance");
+            }
+            else if (contentId == "tool.branisimili")
+            {
+                v = new BraniSimiliToolView();
+                titolo = (string)(System.Windows.Application.Current.TryFindResource("BraniSimiliTitolo") ?? "Similar Passages");
+            }
             else if (contentId == "tool.converter")
             {
                 v = new ConverterToolView();
@@ -201,6 +208,10 @@ public class DockingHostService
                 anchorable.Title = (string)(System.Windows.Application.Current.TryFindResource("RicercaTitolo") ?? "Search");
             else if (contentId == "tool.textgen")
                 anchorable.Title = (string)(System.Windows.Application.Current.TryFindResource("MostraTitolo") ?? "Show Passage");
+            else if (contentId == "tool.creachiave")
+                anchorable.Title = (string)(System.Windows.Application.Current.TryFindResource("CreaChiaveTitolo") ?? "Create Concordance");
+            else if (contentId == "tool.branisimili")
+                anchorable.Title = (string)(System.Windows.Application.Current.TryFindResource("BraniSimiliTitolo") ?? "Similar Passages");
             else if (contentId == "tool.converter")
                 anchorable.Title = (string)(System.Windows.Application.Current.TryFindResource("MisureTitolo") ?? "Measures Converter");
             else
@@ -221,12 +232,12 @@ public class DockingHostService
         if (existingDoc != null)
         {
             existingDoc.Content ??= contentId switch
-                {
-                    "tool.options" => new OptionsToolView(),
-                    "tool.library" => new LibraryToolView(),
-                    "tool.riferimenti" => new ReferenceSearchToolView(),
-                    _ => null
-                };
+            {
+                "tool.options" => new OptionsToolView(),
+                "tool.library" => new LibraryToolView(),
+                "tool.riferimenti" => new ReferenceSearchToolView(),
+                _ => null
+            };
             // Refresh title and focus
             existingDoc.Title = contentId switch
             {
@@ -323,7 +334,7 @@ public class DockingHostService
         LayoutDocument layoutDoc = new()
         {
             Title = string.IsNullOrEmpty(titolo) ?
-                (string)(System.Windows.Application.Current.TryFindResource("EditorTitle") ?? "Editor Document")
+                (string)(System.Windows.Application.Current.TryFindResource("EditorTitolo") ?? "Document")
                 : titolo,
             ContentId = $"doc.editor.{Guid.NewGuid():N}",
             Content = view
@@ -363,9 +374,14 @@ public class DockingHostService
         if (dlg.ShowDialog(owner) != true)
             return;
 
-        string? titolo = Path.GetFileName(dlg.FileName);
+        OpenFileInEditor(dlg.FileName);
+    }
+
+    public void OpenFileInEditor(string nomeFile)
+    {
+        string? titolo = Path.GetFileName(nomeFile);
         EditorDocumentView? view = OpenEditorDocument(titolo: titolo);
-        view?.LoadDocument(dlg.FileName);
+        view?.LoadDocument(nomeFile);
     }
 
     public ViewerDocumentView? OpenViewerDocument(string title, byte libro = 1, byte capitolo = 1, byte versetto = 1)
@@ -377,19 +393,34 @@ public class DockingHostService
         return view;
     }
 
-    public ViewerDocumentView? OpenViewerDocument(string title, string notaTitolo = "")
+    public ViewerDocumentView? OpenViewerDocument(string title, string notaTitolo = "", bool unico = false)
     {
-        ViewerDocumentView? view = OpenViewerDocumentCommon(title);
+        ViewerDocumentView? view = OpenViewerDocumentCommon(title, unico);
 
         if (view != null)
             _ = view.SpostaTesto(notaTitolo, true, false);
         return view;
     }
 
-    private ViewerDocumentView? OpenViewerDocumentCommon(string title)
+    private ViewerDocumentView? OpenViewerDocumentCommon(string title, bool unico = false)
     {
         if (!MainWindow.Testi.VersioneEsiste(title))
             return null;
+
+        if (unico && _dock?.Layout != null)
+        {
+            // se già aperto, vai a quella finestra - usato per il file della Guida
+            LayoutDocument? existingDoc = _dock.Layout.Descendents()
+                .OfType<LayoutDocument>()
+                .FirstOrDefault(d => string.Equals(d.Title, title, StringComparison.Ordinal));
+
+            if (existingDoc != null)
+            {
+                existingDoc.IsSelected = true;
+                existingDoc.IsActive = true;
+                return existingDoc.Content as ViewerDocumentView;
+            }
+        }
 
         LayoutDocumentPane? docPane = _dock?.Layout?.Descendents()
             .OfType<LayoutDocumentPane>()
@@ -435,7 +466,6 @@ public class DockingHostService
         layoutDoc.IsActive = true;
 
         return view;
-
     }
 
     public Immagine? OpenImmagineDocument(string percorso)
@@ -461,7 +491,7 @@ public class DockingHostService
             }
             else
             {
-                string messaggio = (string)(Application.Current.TryFindResource("ImmaginiCollezioneNonTrovata") ?? "Collection not found");
+                string messaggio = (string)(Application.Current.TryFindResource("ImmaginiCollezioneNonTrovata") ?? "The collection of notes '{0}' was not found.");
                 messaggio = string.Format(CultureInfo.InvariantCulture, messaggio, collezione);
                 string titolo = (string)(Application.Current.TryFindResource("Errore") ?? "Error");
                 if (_ownerWindow != null)

@@ -1,7 +1,6 @@
 using AvalonDock;
 using AvalonDock.Layout;
-using AvalonDock.Layout.Serialization;
-using LaParola.Dialogs;
+using AvalonDock.Serializer.Xml;
 using LaParola.DocumentViews;
 using LaParola.Models;
 using LaParola.Services;
@@ -20,14 +19,36 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 
+/* Procedura per aggiornare il programma
+ * -------------------------------------
+cambiare il numero di versione in LaParola.csproj (3 volte)
+aggiornare i due file della Guida (inclusa la pagina Cambiamenti recenti)
+controllare i due file della Guida: copia it/en.parole_radici nella cartelle dei file RTF, e controlla le parole senza radice
+creare i file di Guida, copiare alle risorse, renderli di sola lettura tipo 3
+
+In Terminal (Developer PowerShell) oppure menu Build -> Publish LaParola:
+dotnet publish -c Release -r win-x64 --self-contained true -o ./publish-standalone
+
+Per app portable: caricare sul sito la cartella publish direttamente, eventualmente zippato
+Per Store: vedi https://learn.microsoft.com/en-au/windows/apps/publish/ e AI
+
+aggiorna laparola.net/programma/messaggi.json
+aggiornare programma/windows.php, program/index.php
+aggiorna file x cd
+github codice: finestra Gitchanges: metti il numero di versione, commit; poi menu Git: Push
+github sito+codice
+novita.php, feed.xml
+messaggio mailing list, Facebook
+*/
+
 namespace LaParola;
 
 // per passare SmartScreen, usa https://www.microsoft.com/en-us/wdsi/filesubmission 
 // per controllare il contenuto di un FlowDocument, System.Windows.Markup.XamlWriter.Save(finalDoc) in Immediate Window
 
+// TODO togliere tutti "var "
+// TODO2 Informazioni sul versetto/tema
 // TODO2 Regex per identificare riferimenti da Berea
-// TODO2 versione 8.0.6
-// TODO2 togliere tutti "var "
 // TODO2 all'uscita con note modificate, ci vuole tanto tempo per scrivere le modifiche e chiudere il programma
 // TODO2 importare Henry come Libro dà Out of Memory errore
 // TODO2 perché parlare in lingue importato ha ipertesto (ma senza hover), ma Brani no? forse CollegaCitazioniEEscape?
@@ -38,7 +59,6 @@ namespace LaParola;
 // TODO2 toolbar: new, open, save (all), print, undo, redo, find, cut, copy, paste, vis bibbia, commentario, apri note, segnalibri, navigare, ricerca, mostra, (chiave), (racc info), paralleli, LQ, Misure, Gesti testi, aggiorna, opzioni,aiuto
 // available icons are listed here: https://pictogrammers.com/library/mdi/ and https://pictogrammers.github.io/@mdi/font/5.4.55/ 
 // TODO2 oppure invece di un toolbar, creare un tool "Quick Access", come in Logos
-// TODO2 help centre: Search, FAQs, tutorials, contact, release notes, keyboard shortcuts, about, documentation, how to use, getting started
 // TODO2 right click menu for Editor and Visualizza
 
 // TODO2 ApplicationCommands:
@@ -118,6 +138,8 @@ public partial class MainWindow : Window
 {
     private SearchToolView? _searchView;
     private TextGeneratorToolView? _textGenView;
+    private CreaChiaveToolView? _creaChiaveView;
+    private BraniSimiliToolView? _braniSimiliView;
     private ConverterToolView? _converterView;
     private OptionsToolView? _optionsView;
     private LibraryToolView? _libraryView;
@@ -129,6 +151,12 @@ public partial class MainWindow : Window
 
     private object TextGenToolViewInstance()
         => _textGenView ??= new TextGeneratorToolView();
+
+    private object CreaChiaveToolViewInstance()
+        => _creaChiaveView ??= new CreaChiaveToolView();
+
+    private object BraniSimiliToolViewInstance()
+        => _braniSimiliView ??= new BraniSimiliToolView();
 
     private object ConverterToolViewInstance()
         => _converterView ??= new ConverterToolView();
@@ -163,6 +191,8 @@ public partial class MainWindow : Window
     public static readonly RoutedUICommand SearchCommand = new("Search", "SearchCommand", typeof(MainWindow));
     public static readonly RoutedUICommand FontCommand = new("Font", "FontCommand", typeof(MainWindow));
     public static readonly RoutedUICommand MostraCommand = new("Mostra", "MostraCommand", typeof(MainWindow));
+    public static readonly RoutedUICommand CreaChiaveCommand = new("CreaChiave", "CreaChiaveCommand", typeof(MainWindow));
+    public static readonly RoutedUICommand BraniSimiliCommand = new("BraniSimili", "BraniSimiliCommand", typeof(MainWindow));
     public static readonly RoutedUICommand ConverterCommand = new("Converter", "ConverterCommand", typeof(MainWindow));
     public static readonly RoutedUICommand VoiceCommand = new("Voice", "VoiceCommand", typeof(MainWindow));
     public static readonly RoutedUICommand AddTextsCommand = new("AddTexts", "AddTextsCommand", typeof(MainWindow));
@@ -211,6 +241,7 @@ public partial class MainWindow : Window
             {
                 Testi = new Texts(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + Path.DirectorySeparatorChar + "LaParola" + Path.DirectorySeparatorChar);
                 Testi.AggiungiDirectory(AppContext.BaseDirectory);
+                Testi.AggiungiDirectory(Path.Combine(AppContext.BaseDirectory, "Resources"));
             });
         }
         finally
@@ -222,12 +253,28 @@ public partial class MainWindow : Window
             if (settings.UltimaBibbiaCompleta != "")
                 Testi.UltimaBibbiaCompleta = settings.UltimaBibbiaCompleta;
 
-            if (settings.Lingua == "it")
+            string libriNomiSettings = settings.LibriNomi;
+            string libriAbbreviazioniUsateSettings = settings.LibriAbbreviazioniUsate;
+            string libriAbbreviazioniRiconosciuteSettings = settings.LibriAbbreviazioniRiconosciute;
+
+            if (string.IsNullOrEmpty(libriNomiSettings) && settings.Lingua == "it")
+                libriNomiSettings = Texts.LibriNomiItaliano;
+            if (string.IsNullOrEmpty(libriAbbreviazioniUsateSettings) && settings.Lingua == "it")
+                libriAbbreviazioniUsateSettings = Texts.LibriAbbreviazioniUsateItaliano;
+            if (string.IsNullOrEmpty(libriAbbreviazioniRiconosciuteSettings) && settings.Lingua == "it")
+                libriAbbreviazioniRiconosciuteSettings = Texts.LibriAbbreviazioniRiconosciuteItaliano;
+
+            if (!string.IsNullOrEmpty(libriNomiSettings))
             {
-                // TODO2 salvati in settings, da cambiare in Opzioni
-                Testi.libriNomi = Texts.LibriNomiItaliano.Split('|');
-                Testi.libriAbbreviazioniUsate = Texts.LibriAbbreviazioniUsateItaliano.Split('|');
-                string[] libriAbbRic = Texts.LibriAbbreviazioniRiconosciuteItaliano.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                Testi.libriNomi = libriNomiSettings.Split('|');
+            }
+            if (!string.IsNullOrEmpty(libriAbbreviazioniUsateSettings))
+            {
+                Testi.libriAbbreviazioniUsate = libriAbbreviazioniUsateSettings.Split('|');
+            }
+            if (!string.IsNullOrEmpty(libriAbbreviazioniRiconosciuteSettings))
+            {
+                string[] libriAbbRic = libriAbbreviazioniRiconosciuteSettings.Split('|', StringSplitOptions.RemoveEmptyEntries);
                 string[] abbreviazioniDiLibro;
                 Testi.LibriAbbreviazioniRiconosciute.Clear();
                 for (byte i = 1; i <= 73; ++i)
@@ -236,104 +283,110 @@ public partial class MainWindow : Window
                     foreach (string abbreviazioneDiLibro in abbreviazioniDiLibro)
                         Testi.LibriAbbreviazioniRiconosciute[abbreviazioneDiLibro] = i;
                 }
-
-                UpdateShortcutBindings("it");
             }
 
-            // Ora ripristina layout
-            RestoreDockLayout();
+            UpdateShortcutBindings("it");
+        }
 
-            ShowLoadingOverlay(false);
+        // Ora ripristina layout
+        RestoreDockLayout();
 
-            App.DockingHost.ActiveEditorChanged += (_, _) =>
+        ShowLoadingOverlay(false);
+
+        App.DockingHost.ActiveEditorChanged += (_, _) =>
+        {
+            UpdateEditorMenuState();
+        };
+
+        App.DockingHost.ActiveWindowChanged += (_, _) =>
+        {
+            UpdateMenuState();
+        };
+
+        AggiornaMenuVisualizza();
+
+        if (Testi.NomiVersioni().Count == 0)
+        {
+            MessageBoxLPN.Show(this,
+                (string)(Application.Current.TryFindResource("MainNessunaVersione") ?? "No text was found. Use the 'Add Texts' command of the Tools menu to add some texts."),
+                (string)(Application.Current.TryFindResource("Errore") ?? "Error"));
+        }
+
+        // imposta dizionari
+        if (!string.IsNullOrEmpty(settings.DizionarioInglese) && Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioInglese).Lingua) != "en")
+            settings.DizionarioInglese = "";
+        if (!string.IsNullOrEmpty(settings.DizionarioItaliano) && Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioItaliano).Lingua) != "it")
+            settings.DizionarioItaliano = "";
+        if (!string.IsNullOrEmpty(settings.DizionarioGreco) && Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioGreco).Lingua) != "el")
+            settings.DizionarioGreco = "";
+        if (!string.IsNullOrEmpty(settings.DizionarioEbraico) && Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioEbraico).Lingua) != "he")
+            settings.DizionarioEbraico = "";
+        if (!string.IsNullOrEmpty(settings.DizionarioLatino) && Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioLatino).Lingua) != "la")
+            settings.DizionarioLatino = "";
+
+        if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("International Standard Bible Encyclopedia").Lingua == "en")
+            settings.DizionarioInglese = "International Standard Bible Encyclopedia";
+        if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Easton's Bible Dictionary").Lingua == "en")
+            settings.DizionarioInglese = "Easton's Bible Dictionary";
+        if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Torrey's New Topical Textbook").Lingua == "en")
+            settings.DizionarioInglese = "Torrey's New Topical Textbook";
+        if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Smith's Bible Dictionary").Lingua == "en")
+            settings.DizionarioInglese = "Smith's Bible Dictionary";
+        if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Nave's Topical Bible").Lingua == "en")
+            settings.DizionarioInglese = "Nave's Topical Bible";
+        if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Hitchcock's Bible Names Dictionary").Lingua == "en")
+            settings.DizionarioInglese = "Hitchcock's Bible Names Dictionary";
+
+        if (string.IsNullOrEmpty(settings.DizionarioItaliano) && Testi.Info("Enciclopedia biblica").Lingua == "it")
+            settings.DizionarioItaliano = "Enciclopedia biblica";
+        if (string.IsNullOrEmpty(settings.DizionarioItaliano) && Testi.Info("Note della Nuova Riveduta").Lingua == "it")
+            settings.DizionarioItaliano = "Note della Nuova Riveduta";
+
+        if (settings.Lingua.Length >= 2 && settings.Lingua[..2].Equals("IT", StringComparison.InvariantCultureIgnoreCase))
+        {
+            if (string.IsNullOrEmpty(settings.DizionarioGreco) && Funzioni.LinguaPrincipale(Testi.Info("Vocabolario del Nuovo Testamento").Lingua) == "el")
+                settings.DizionarioGreco = "Vocabolario del Nuovo Testamento";
+        }
+        if (string.IsNullOrEmpty(settings.DizionarioGreco) && Funzioni.LinguaPrincipale(Testi.Info("Strong's Greek Dictionary").Lingua) == "el")
+            settings.DizionarioGreco = "Strong's Greek Dictionary";
+        if (string.IsNullOrEmpty(settings.DizionarioEbraico) && Funzioni.LinguaPrincipale(Testi.Info("Strong's Hebrew Dictionary").Lingua) == "he")
+            settings.DizionarioEbraico = "Strong's Hebrew Dictionary";
+        if (string.IsNullOrEmpty(settings.DizionarioLatino) && Funzioni.LinguaPrincipale(Testi.Info("Words Latin Dictionary").Lingua) == "la")
+            settings.DizionarioLatino = "Words Latin Dictionary";
+
+        Collection<string> dizionariTutti = Testi.NomiVersioni(TestoTipi.Dizionario);
+        foreach (string dizionario in dizionariTutti)
+        {
+            switch (Funzioni.LinguaPrincipale(Testi.Info(dizionario).Lingua))
             {
-                UpdateEditorMenuState();
-            };
-
-            App.DockingHost.ActiveWindowChanged += (_, _) =>
-            {
-                UpdateMenuState();
-            };
-
-            AggiornaMenuVisualizza();
-
-            if (Testi.NomiVersioni().Count == 0)
-            {
-                MessageBoxLPN.Show(this,
-                    (string)(Application.Current.TryFindResource("MainNessunaVersione") ?? "No text was found. Use the 'Add Texts' command of the Tools menu to add some texts."),
-                    (string)(Application.Current.TryFindResource("Errore") ?? "Error"));
-            }
-
-            // imposta dizionari
-            if (Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioInglese).Lingua) != "en")
-                settings.DizionarioInglese = "";
-            if (Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioItaliano).Lingua) != "it")
-                settings.DizionarioItaliano = "";
-            if (Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioGreco).Lingua) != "el")
-                settings.DizionarioGreco = "";
-            if (Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioEbraico).Lingua) != "he")
-                settings.DizionarioEbraico = "";
-            if (Funzioni.LinguaPrincipale(Testi.Info(settings.DizionarioLatino).Lingua) != "la")
-                settings.DizionarioLatino = "";
-
-            if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("International Standard Bible Encyclopedia").Lingua == "en")
-                settings.DizionarioInglese = "International Standard Bible Encyclopedia";
-            if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Easton's Bible Dictionary").Lingua == "en")
-                settings.DizionarioInglese = "Easton's Bible Dictionary";
-            if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Torrey's New Topical Textbook").Lingua == "en")
-                settings.DizionarioInglese = "Torrey's New Topical Textbook";
-            if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Smith's Bible Dictionary").Lingua == "en")
-                settings.DizionarioInglese = "Smith's Bible Dictionary";
-            if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Nave's Topical Bible").Lingua == "en")
-                settings.DizionarioInglese = "Nave's Topical Bible";
-            if (string.IsNullOrEmpty(settings.DizionarioInglese) && Testi.Info("Hitchcock's Bible Names Dictionary").Lingua == "en")
-                settings.DizionarioInglese = "Hitchcock's Bible Names Dictionary";
-
-            if (string.IsNullOrEmpty(settings.DizionarioItaliano) && Testi.Info("Enciclopedia biblica").Lingua == "it")
-                settings.DizionarioItaliano = "Enciclopedia biblica";
-            if (string.IsNullOrEmpty(settings.DizionarioItaliano) && Testi.Info("Note della Nuova Riveduta").Lingua == "it")
-                settings.DizionarioItaliano = "Note della Nuova Riveduta";
-
-            if (settings.Lingua.Length >= 2 && settings.Lingua[..2].Equals("IT", StringComparison.InvariantCultureIgnoreCase))
-            {
-                if (string.IsNullOrEmpty(settings.DizionarioGreco) && Funzioni.LinguaPrincipale(Testi.Info("Vocabolario del Nuovo Testamento").Lingua) == "el")
-                    settings.DizionarioGreco = "Vocabolario del Nuovo Testamento";
-            }
-            if (string.IsNullOrEmpty(settings.DizionarioGreco) && Funzioni.LinguaPrincipale(Testi.Info("Strong's Greek Dictionary").Lingua) == "el")
-                settings.DizionarioGreco = "Strong's Greek Dictionary";
-            if (string.IsNullOrEmpty(settings.DizionarioEbraico) && Funzioni.LinguaPrincipale(Testi.Info("Strong's Hebrew Dictionary").Lingua) == "he")
-                settings.DizionarioEbraico = "Strong's Hebrew Dictionary";
-            if (string.IsNullOrEmpty(settings.DizionarioLatino) && Funzioni.LinguaPrincipale(Testi.Info("Words Latin Dictionary").Lingua) == "la")
-                settings.DizionarioLatino = "Words Latin Dictionary";
-
-            Collection<string> dizionariTutti = Testi.NomiVersioni(TestoTipi.Dizionario);
-            foreach (string dizionario in dizionariTutti)
-            {
-                switch (Funzioni.LinguaPrincipale(Testi.Info(dizionario).Lingua))
-                {
-                    case "en":
-                        if (string.IsNullOrEmpty(settings.DizionarioInglese))
-                            settings.DizionarioInglese = dizionario;
-                        break;
-                    case "it":
-                        if (string.IsNullOrEmpty(settings.DizionarioItaliano))
-                            settings.DizionarioItaliano = dizionario;
-                        break;
-                    case "el":
-                        if (string.IsNullOrEmpty(settings.DizionarioGreco))
-                            settings.DizionarioGreco = dizionario;
-                        break;
-                    case "he":
-                        if (string.IsNullOrEmpty(settings.DizionarioEbraico))
-                            settings.DizionarioEbraico = dizionario;
-                        break;
-                    case "la":
-                        if (string.IsNullOrEmpty(settings.DizionarioLatino))
-                            settings.DizionarioLatino = dizionario;
-                        break;
-                }
+                case "en":
+                    if (string.IsNullOrEmpty(settings.DizionarioInglese))
+                        settings.DizionarioInglese = dizionario;
+                    break;
+                case "it":
+                    if (string.IsNullOrEmpty(settings.DizionarioItaliano))
+                        settings.DizionarioItaliano = dizionario;
+                    break;
+                case "el":
+                    if (string.IsNullOrEmpty(settings.DizionarioGreco))
+                        settings.DizionarioGreco = dizionario;
+                    break;
+                case "he":
+                    if (string.IsNullOrEmpty(settings.DizionarioEbraico))
+                        settings.DizionarioEbraico = dizionario;
+                    break;
+                case "la":
+                    if (string.IsNullOrEmpty(settings.DizionarioLatino))
+                        settings.DizionarioLatino = dizionario;
+                    break;
             }
         }
+
+        // Wait 3 seconds after window load so UI startup remains crisp and unblocked
+        await Task.Delay(3000);
+
+        // Runs background update check (respects the interval in settings)
+        await UpdateService.VerificaEMostraNotificaAggiornamentiAsync(forzato: false);
     }
 
     private void DockingManager_DocumentClosed(object sender, DocumentClosedEventArgs e)
@@ -472,17 +525,6 @@ public partial class MainWindow : Window
         {
             //HideDefaultToolWindows();
 
-            string testo = "Questa è la versione beta (cioè di prova) di LaParola 8.\n\n" +
-                "Usa il menu 'Visualizza' per leggere la Bibbia. Usa il menu 'Strumenti' per altre possibili azioni da eseguire. Altre funzionalità saranno aggiunte prossimamente.\n\n" +
-                "La disposizione delle finestre è molto flessibile: trascinando il titolo di una finestra, potete spostare, ancorare, affiancare e sovrapporre le finestre come preferite. Potete aprire più finestre e organizzarle come volete.\n\n" +
-                "Se trovi dei problemi e hai dei suggerimenti, scrivimi a info@laparola.net.\n\n" +
-                "-----------------------------------------\n\n" +
-                "This is the beta version of LaParola 8.\n\n" +
-                "Use the 'View' menu to read the Bible. Use the 'Tools' menu for other possible actions. Further features will be added soon.\n\n" +
-                "The window layout is very flexible: by dragging a window's title bar, you can move, dock, tile or overlap windows as you wish. You can open multiple windows and arrange them in any way.\n\n" +
-                "If you encounter any issues or have suggestions, please email me at info@laparola.net.";
-            CreaEditorDocument(testo, ((string)(Application.Current.TryFindResource("MenuAbout") ?? "About LaParola")).Replace("_", ""));
-
             bool versioneVisualizzata = false;
             if (Testi.VersioneEsiste("Nuova Riveduta"))
             {
@@ -506,6 +548,8 @@ public partial class MainWindow : Window
                 // else non visualizziamo nessuna versione, ci sarà un messaggio che nessuna versione è installata
             }
 
+            MostraGuida(settings.Lingua.ToLower()[..2] == "it" ? "Introduzione" : "Introduction");
+
             return;
         }
 
@@ -522,6 +566,8 @@ public partial class MainWindow : Window
             // le istanze già presenti (se le hai nominate con x:Name) oppure crearle.
             if (id == "tool.search") { args.Content = SearchToolViewInstance(); return; }
             if (id == "tool.textgen") { args.Content = TextGenToolViewInstance(); return; }
+            if (id == "tool.creachiave") { args.Content = CreaChiaveToolViewInstance(); return; }
+            if (id == "tool.branisimili") { args.Content = BraniSimiliToolViewInstance(); return; }
             if (id == "tool.converter") { args.Content = ConverterToolViewInstance(); return; }
             if (id == "tool.options") { args.Content = OptionsToolViewInstance(); return; }
             if (id == "tool.library") { args.Content = LibraryToolViewInstance(); return; }
@@ -542,6 +588,7 @@ public partial class MainWindow : Window
                             _ = view.SpostaTesto(state.Titolo, true, false);
                         view.IsTocVisible = state.IsSommarioVisibile;
                         view.SincGruppo = state.SincGruppo;
+                        view.Zoom = state.Zoom;
                         args.Content = view;
                     }
                     else
@@ -911,6 +958,18 @@ public partial class MainWindow : Window
         edv.ReplaceNext();
     }
 
+    private void MenuVisualizza_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (App.DockingHost.GetActiveLayoutContent()?.Content is EditorDocumentView || App.DockingHost.GetActiveLayoutContent()?.Content is ViewerDocumentView)
+        {
+            MenuVisualizzaZoom.IsEnabled = true;
+        }
+        else
+        {
+            MenuVisualizzaZoom.IsEnabled = false;
+        }
+    }
+
     // Questo si attiva solo se l'utente clicca sul menu principale (quando non ha sottomenu)
     private void MenuVisualizzaBibbia_Click(object sender, RoutedEventArgs e)
     {
@@ -1059,6 +1118,63 @@ public partial class MainWindow : Window
         view?.MostraIndice(true);
     }
 
+    private void MenuVisualizzaZoom_Click(object sender, RoutedEventArgs e)
+    {
+        // FocusManager.GetFocusedElement(this) is RichTextBox rtb
+        if (sender is MenuItem mi)
+        {
+            int zoom = int.Parse(mi.Tag.ToString() ?? "0");
+            if (zoom > 0)
+            {
+                if (App.DockingHost.GetActiveLayoutContent()?.Content is EditorDocumentView edv)
+                {
+                    edv.Editor.LayoutTransform = new ScaleTransform(zoom / 100.0, zoom / 100.0);
+                }
+                else if (App.DockingHost.GetActiveLayoutContent()?.Content is ViewerDocumentView vdv)
+                {
+                    vdv.Zoom = zoom;
+                }
+            }
+        }
+    }
+
+    private void Zoom_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, e.Source))
+            return;
+
+        MenuZoom100.IsChecked = false;
+        MenuZoom200.IsChecked = false;
+        MenuZoom050.IsChecked = false;
+        MenuZoom080.IsChecked = false;
+        MenuZoom150.IsChecked = false;
+        MenuZoom120.IsChecked = false;
+        MenuZoom400.IsChecked = false;
+
+        RichTextBox? rtb = null;
+        if (App.DockingHost.GetActiveLayoutContent()?.Content is EditorDocumentView edv)
+            rtb = edv.Editor;
+        else if (App.DockingHost.GetActiveLayoutContent()?.Content is ViewerDocumentView vdv)
+            rtb = vdv.Viewer;
+
+        if (rtb != null)
+        {
+            int zoom = (int)Math.Round(rtb.LayoutTransform.Value.M11 * 100);
+            switch (zoom)
+            {
+                case 50: MenuZoom050.IsChecked = true; break;
+                case 80: MenuZoom080.IsChecked = true; break;
+                case 100: MenuZoom100.IsChecked = true; break;
+                case 120: MenuZoom120.IsChecked = true; break;
+                case 150: MenuZoom150.IsChecked = true; break;
+                case 200: MenuZoom200.IsChecked = true; break;
+                case 400: MenuZoom400.IsChecked = true; break;
+                default:
+                    break;
+            }
+        }
+    }
+
     private void Image_Executed(object sender, ExecutedRoutedEventArgs e)
     {
         {
@@ -1175,6 +1291,23 @@ public partial class MainWindow : Window
         App.DockingHost.ShowTool("tool.textgen");
     }
 
+    private void CreaChiave_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        // Assicurati che Testi sia pronto prima di creare la view
+        if (Testi == null)
+            return; // oppure mostra un messaggio / lascia l’overlay attivo
+
+        App.DockingHost.ShowTool("tool.creachiave");
+    }
+
+    private void BraniSimili_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (Testi == null)
+            return; // oppure mostra un messaggio / lascia l’overlay attivo
+
+        App.DockingHost.ShowTool("tool.branisimili");
+    }
+
     private void Converter_Executed(object sender, ExecutedRoutedEventArgs e) => App.DockingHost.ShowTool("tool.converter");
 
     private void Riferimenti_Executed(object sender, ExecutedRoutedEventArgs e) => App.DockingHost.ShowTool("tool.riferimenti");
@@ -1193,7 +1326,30 @@ public partial class MainWindow : Window
 
     private void AddTexts_Executed(object sender, ExecutedRoutedEventArgs e)
     {
+        ApriAggiungiTesti();
+    }
+
+    public static void ApriAggiungiTesti(List<TextUpdateInfo>? aggiornamenti = null)
+    {
         App.DockingHost.ShowTool("tool.aggiungitesti");
+
+        if (Application.Current.MainWindow is MainWindow mw)
+        {
+            if (mw.FindName("Dock") is AvalonDock.DockingManager dock)
+            {
+                LayoutDocument? aggiungiTestiDocument = dock.Layout.Descendents()
+                    .OfType<LayoutDocument>()
+                    .FirstOrDefault(a => a.ContentId == "tool.aggiungitesti");
+
+                if (aggiungiTestiDocument?.Content is AggiungiTesti aggiungiTestiView)
+                {
+                    if (aggiornamenti != null && aggiornamenti.Count > 0)
+                    {
+                        aggiungiTestiView.SelezionaAggiornamenti(aggiornamenti);
+                    }
+                }
+            }
+        }
     }
 
     private void Options_Executed(object sender, ExecutedRoutedEventArgs e)
@@ -1201,6 +1357,39 @@ public partial class MainWindow : Window
         if (Testi == null)
             return; // oppure mostra un messaggio / lascia l’overlay attivo
         App.DockingHost.ShowTool("tool.options");
+    }
+
+    private void Assistenza_Click(object sender, RoutedEventArgs e)
+    {
+        if (e.Source == sender)
+        {
+            MostraGuida();
+        }
+    }
+
+    internal static void MostraGuida(string sezione = "")
+    {
+        string linguaInterfaccia = MainWindow.settings.Lingua.ToLower()[..2];
+        string nome = linguaInterfaccia == "en" ? "Help for LaParola" : "Guida a LaParola";
+
+        if (Testi.VersioneEsiste(nome))
+        {
+            if (string.IsNullOrEmpty(sezione))
+            {
+                VisualizzaLibro(nome);
+            }
+            else
+            {
+                /*ViewerDocumentView? view = */
+                App.DockingHost.OpenViewerDocument(nome, sezione, true);
+            }
+        }
+        else
+        {
+            MessageBoxLPN.Show(Application.Current.MainWindow,
+                (string)(Application.Current.TryFindResource("MainNessunaGuida") ?? "The help file was not found. It is maybe an internal problem in the program."),
+                (string)(Application.Current.TryFindResource("Errore") ?? "Error"));
+        }
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
@@ -1248,6 +1437,8 @@ public partial class MainWindow : Window
 
         // 4) Salva sempre le impostazioni
         App.Settings.Save(settings);
+
+        Testi.Chiudi();
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -1311,7 +1502,8 @@ public partial class MainWindow : Window
                     Versetto = viewer.Versetto,
                     Titolo = viewer.Titolo,
                     IsSommarioVisibile = viewer.IsTocVisible,
-                    SincGruppo = viewer.SincGruppo
+                    SincGruppo = viewer.SincGruppo,
+                    Zoom = viewer.Zoom,
                 });
             }
         }

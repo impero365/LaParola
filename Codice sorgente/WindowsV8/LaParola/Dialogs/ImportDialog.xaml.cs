@@ -1,17 +1,5 @@
 ﻿using LaParola.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace LaParola.Dialogs
 {
@@ -27,7 +15,7 @@ namespace LaParola.Dialogs
             {
                 LabelFile.Visibility = Visibility.Collapsed;
                 TxtFile.Visibility = Visibility.Collapsed;
-                LabelCome.Visibility=Visibility.Collapsed;
+                LabelCome.Visibility = Visibility.Collapsed;
                 StackCome.Visibility = Visibility.Collapsed;
             }
             else if (tipo == TipoImportazione.ImportaRtf) // mostrare Cartella:
@@ -49,8 +37,7 @@ namespace LaParola.Dialogs
 
         private void HelpFlyout_OnHelpClicked(object sender, RoutedEventArgs e)
         {
-            // TODO2: Open correct help section
-            MessageBox.Show("Open Help Centre");
+            MainWindow.MostraGuida((string)(Application.Current.TryFindResource("ImportaDialogoAiutoPagine") ?? "Bibliographical Information"));
         }
 
         public string File

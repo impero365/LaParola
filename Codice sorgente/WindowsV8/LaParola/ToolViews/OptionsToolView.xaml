@@ -40,6 +40,7 @@
                 <TreeViewItem x:Name="TreeFormato" Header="{DynamicResource OpzioniFormato}">
                     <TreeViewItem x:Name="NodeText" Header="{DynamicResource OpzioniTestoTitolo}"/>
                     <TreeViewItem x:Name="NodeReferences" Header="{DynamicResource OpzioniRiferimentiTitolo}"/>
+                    <TreeViewItem x:Name="NodeBooks" Header="{DynamicResource OpzioniLibriTitolo}"/>
                     <TreeViewItem x:Name="NodeFonts" Header="{DynamicResource OpzioniFontTitolo}"/>
                 </TreeViewItem>
 
@@ -50,6 +51,7 @@
 
                 <TreeViewItem x:Name="TreeAggiornamenti" Header="{DynamicResource OpzioniAggiornamenti}">
                     <TreeViewItem x:Name="NodeMessages" Header="{DynamicResource OpzioniAggiornamentiMessaggi}"/>
+                    <TreeViewItem x:Name="NodeTextUpdates" Header="{DynamicResource OpzioniAggiornamentiTesti}"/>
                 </TreeViewItem>
             </TreeView>
         </ScrollViewer>
@@ -153,7 +155,27 @@
                             <Slider Grid.Row="1" x:Name="VoceVolume" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="SettingChanged" Margin="10,5"/>
                             <TextBlock Grid.Row="1" x:Name="VoceVolumeValore" Grid.Column="2" VerticalAlignment="Center" MinWidth="40" TextAlignment="Right"/>
                         </Grid>
-                        <CheckBox x:Name="VoceEvidenzia" Content="{DynamicResource OpzioniVoceEvidenzia}" Margin="10,10,0,0" Checked="SettingChanged" Unchecked="SettingChanged"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <CheckBox x:Name="VoceEvidenzia" Content="{DynamicResource OpzioniVoceEvidenzia}" Margin="10,10,0,0" Checked="SettingChanged" Unchecked="SettingChanged"/>
+                            <ComboBox x:Name="ColorPickerEvidenzia" Grid.Column="1" Margin="5,6,0,0" Width="160"
+          HorizontalAlignment="Left"
+          IsEnabled="{Binding ElementName=VoceEvidenzia, Path=IsChecked}"
+          SelectionChanged="ColorPickerEvidenzia_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="16" Height="16" Margin="0,0,8,0" CornerRadius="2"
+                        Background="{Binding Brush}" BorderBrush="Gray" BorderThickness="1"/>
+                                        <TextBlock Text="{Binding Name}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        </Grid>
                     </StackPanel>
                 </GroupBox>
 
@@ -202,6 +224,50 @@
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>
+                </GroupBox>
+
+                <GroupBox x:Name="SectionBooks" Margin="0,4,0,16" Header="{DynamicResource OpzioniLibriTitolo}" ToolTipService.ShowDuration="10000">
+                    <GroupBox.ToolTip>
+                        <ToolTip>
+                            <TextBlock Text="{DynamicResource OpzioniLibriAiuto}" TextWrapping="Wrap" MaxWidth="300"/>
+                        </ToolTip>
+                    </GroupBox.ToolTip>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <DataGrid x:Name="GridLibri" Grid.Row="0" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                  PreparingCellForEdit="GridLibri_PreparingCellForEdit" CellEditEnding="GridLibri_CellEditEnding"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" MaxHeight="450" VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource OpzioniLibriNomi}" 
+                                Binding="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" 
+                                Width="Auto"/>
+                                <DataGridTextColumn Header="{DynamicResource OpzioniLibriAbbreviazioniUsate}" 
+                                Binding="{Binding AbbreviazioneUsata, UpdateSourceTrigger=PropertyChanged}" 
+                                Width="Auto"/>
+                                <DataGridTextColumn Header="{DynamicResource OpzioniLibriAbbreviazioniRiconosciute}" 
+                                Binding="{Binding AbbreviazioniRiconosciute, UpdateSourceTrigger=PropertyChanged}" 
+                                Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,8,0,8" HorizontalAlignment="Center">
+                            <Button x:Name="BtnPredefinitiItaliano" 
+                    Content="{DynamicResource OpzioniLibriPredefinitiItaliano}" 
+                    Margin="0,0,8,0" 
+                    Padding="8,4" 
+                    Click="BtnPredefinitiItaliano_Click"/>
+                            <Button x:Name="BtnPredefinitiInglese" 
+                    Content="{DynamicResource OpzioniLibriPredefinitiInglese}" 
+                    Padding="8,4" 
+                    Click="BtnPredefinitiInglese_Click"/>
+                        </StackPanel>
+                    </Grid>
                 </GroupBox>
 
                 <GroupBox x:Name="SectionFonts" Margin="0,4,0,0" Header="{DynamicResource OpzioniFontTitolo}" ToolTipService.ShowDuration="10000">
@@ -261,7 +327,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiBibbiaPreferita1}" VerticalAlignment="Center" Target="{Binding ElementName=ComboPref1}"/>
-                            <ComboBox x:Name="ComboPref1" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left" 
+                            <ComboBox x:Name="ComboPref1" Grid.Column="1" Width="300" HorizontalAlignment="Left" 
                       DisplayMemberPath="Titolo" SelectedValuePath="Nome" SelectionChanged="ComboPref_SelectionChanged" />
                         </Grid>
 
@@ -271,7 +337,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiBibbiaPreferita2}" VerticalAlignment="Center" Target="{Binding ElementName=ComboPref2}"/>
-                            <ComboBox x:Name="ComboPref2" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left"
+                            <ComboBox x:Name="ComboPref2" Grid.Column="1" Width="300" HorizontalAlignment="Left"
                       DisplayMemberPath="Titolo" SelectedValuePath="Nome" SelectionChanged="ComboPref_SelectionChanged" />
                         </Grid>
 
@@ -281,7 +347,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiBibbiaPreferita3}" VerticalAlignment="Center" Target="{Binding ElementName=ComboPref3}"/>
-                            <ComboBox x:Name="ComboPref3" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left"
+                            <ComboBox x:Name="ComboPref3" Grid.Column="1" Width="300" HorizontalAlignment="Left"
                       DisplayMemberPath="Titolo" SelectedValuePath="Nome" SelectionChanged="ComboPref_SelectionChanged" />
                         </Grid>
                     </Grid>
@@ -308,7 +374,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiDizionarioInglese}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="ComboDizionarioInglese" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
+                            <ComboBox x:Name="ComboDizionarioInglese" Grid.Column="1" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
                         </Grid>
                         <Grid Grid.Row="1" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
@@ -316,7 +382,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiDizionarioItaliano}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="ComboDizionarioItaliano" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
+                            <ComboBox x:Name="ComboDizionarioItaliano" Grid.Column="1" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
                         </Grid>
                         <Grid Grid.Row="2" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
@@ -324,7 +390,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiDizionarioGreco}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="ComboDizionarioGreco" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
+                            <ComboBox x:Name="ComboDizionarioGreco" Grid.Column="1" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
                         </Grid>
                         <Grid Grid.Row="3" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
@@ -332,7 +398,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiDizionarioEbraico}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="ComboDizionarioEbraico" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
+                            <ComboBox x:Name="ComboDizionarioEbraico" Grid.Column="1" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
                         </Grid>
                         <Grid Grid.Row="4" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
@@ -340,14 +406,14 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="{DynamicResource OpzioniTestiDizionarioLatino}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="ComboDizionarioLatino" Grid.Column="1" Height="26" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
+                            <ComboBox x:Name="ComboDizionarioLatino" Grid.Column="1" Width="300" HorizontalAlignment="Left" SelectionChanged="ComboDizionario_SelectionChanged" />
                         </Grid>
                     </Grid>
                 </GroupBox>
 
                 <TextBlock x:Name="SectionAggiornamentiHeader" FontSize="16" FontWeight="SemiBold" Margin="4,12,0,8" Text="{DynamicResource OpzioniAggiornamenti}"/>
 
-                <GroupBox x:Name="SectionMessages" Margin="0,4,0,16" Header="{DynamicResource OpzioniAggiornamentiMessaggi}">
+                <GroupBox x:Name="SectionMessaggi" Margin="0,4,0,0" Header="{DynamicResource OpzioniAggiornamentiMessaggi}">
                     <GroupBox.ToolTip>
                         <ToolTip>
                             <TextBlock Text="{DynamicResource OpzioniMessaggiAiuto}" TextWrapping="Wrap" MaxWidth="300"/>
@@ -358,6 +424,20 @@
                         <RadioButton x:Name="AggiornamentiMessaggiGiorno" Content="{DynamicResource OpzioniMessaggiGiorno}" Margin="0,6,0,0" Checked="SettingChanged"/>
                         <RadioButton x:Name="AggiornamentiMessaggiSettimana" Content="{DynamicResource OpzioniMessaggiSettimana}" Margin="0,6,0,0" Checked="SettingChanged"/>
                         <RadioButton x:Name="AggiornamentiMessaggiMese" Content="{DynamicResource OpzioniMessaggiMese}" Margin="0,6,0,0" Checked="SettingChanged"/>
+                    </StackPanel>
+                </GroupBox>
+                
+                <GroupBox x:Name="SectionAggiornamentiTesti" Margin="0,4,0,16" Header="{DynamicResource OpzioniAggiornamentiTesti}">
+                    <GroupBox.ToolTip>
+                        <ToolTip>
+                            <TextBlock Text="{DynamicResource OpzioniAggiornamentiTestiAiuto}" TextWrapping="Wrap" MaxWidth="300"/>
+                        </ToolTip>
+                    </GroupBox.ToolTip>
+                    <StackPanel Margin="10">
+                        <RadioButton x:Name="AggiornamentiTestiMai" Content="{DynamicResource OpzioniMessaggiMai}" Checked="SettingChanged"/>
+                        <RadioButton x:Name="AggiornamentiTestiGiorno" Content="{DynamicResource OpzioniMessaggiGiorno}" Margin="0,6,0,0" Checked="SettingChanged"/>
+                        <RadioButton x:Name="AggiornamentiTestiSettimana" Content="{DynamicResource OpzioniMessaggiSettimana}" Margin="0,6,0,0" Checked="SettingChanged"/>
+                        <RadioButton x:Name="AggiornamentiTestiMese" Content="{DynamicResource OpzioniMessaggiMese}" Margin="0,6,0,0" Checked="SettingChanged"/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

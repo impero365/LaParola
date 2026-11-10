@@ -1,11 +1,38 @@
 [
   {
+    "Id": 7,
+    "Title": "Version 8.0.8",
+    "Content": "The new beta version is now available at https://www.laparola.net/programma/windowsbeta.php . The main new features are the search for similar passages, saving the information about the installed texts, and updating the texts when there are new versions.",
+    "TitleIt": "Versione 8.0.8",
+    "ContentIt": "La nuova versione beta è ora disponibile a https://www.laparola.net/programma/windowsbeta.php . Le novità principali sono la ricerca di brani simili, salvare le informazioni sui testi installati, e aggiornare i testi quando ci sono nuove versioni.",
+    "Date": "2026-10-10T07:00:00"
+  }
+
+  {
+    "Id": 6,
+    "Title": "Version 8.0.7",
+    "Content": "The new beta version is now available at https://www.laparola.net/programma/windowsbeta.php . The main new features are lists of words and roots in the Search window, export texts, and customising the names and abbreviations of the books of the Bible.",
+    "TitleIt": "Versione 8.0.7",
+    "ContentIt": "La nuova versione beta è ora disponibile a https://www.laparola.net/programma/windowsbeta.php . Le novità principali sono elenchi di parole e radici nella finestra Ricerca, esportare testi, e personalizzare i nomi e le abbreviazioni dei libri della Bibbia.",
+    "Date": "2026-09-21T07:00:00"
+  }
+
+  {
+    "Id": 5,
+    "Title": "Version 8.0.6",
+    "Content": "The new beta version is now available at https://www.laparola.net/programma/windowsbeta.php . The main new features are the creation of concordances of any text, the zoom in the editor and viewer windows, and the help file (working but incomplete).",
+    "TitleIt": "Versione 8.0.6",
+    "ContentIt": "La nuova versione beta è ora disponibile a https://www.laparola.net/programma/windowsbeta.php . Le novità principali sono la creazione di chiavi bibliche di qualsiasi testo, lo zoom nell'editor e nel visualizzatore, e il file della Guida (funzionante ma incompleto).",
+    "Date": "2026-09-01T07:00:00"
+  }
+
+  {
     "Id": 4,
     "Title": "Version 8.0.5",
     "Content": "The sixth beta version is now available at https://www.laparola.net/programma/windowsbeta.php . The main new features are voice synthesis and adding next texts from inside the program.",
     "TitleIt": "Versione 8.0.5",
     "ContentIt": "La sesta versione beta è ora disponibile a https://www.laparola.net/programma/windowsbeta.php . Le novità principali sono la sintesi vocale e la possibilità di aggiungere nuovi testi da dentro il programma.",
-    "Date": "2026-07-13T07:00:00"
+    "Date": "2026-08-01T07:00:00"
   }
 
   {

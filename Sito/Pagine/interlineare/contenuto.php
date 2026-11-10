@@ -13,7 +13,7 @@ else
 if (isset($_POST['righe']))
     $righe = $_POST['righe'];
 else
-    $righe = 15;
+    $righe = 127;
 $nr06 = $righe & 1;
 $binaryLength = strlen(decbin($righe));
 $nr94 = (($binaryLength > 1 && ($righe & (1 << 1))) == 1);
@@ -21,6 +21,7 @@ $r2 = (($binaryLength > 2 && ($righe & (1 << 2))) == 1);
 $rad = (($binaryLength > 3 && ($righe & (1 << 3))) == 1);
 $traslit = (($binaryLength > 4 && ($righe & (1 << 4))) == 1);
 $radtraslit = (($binaryLength > 5 && ($righe & (1 << 5))) == 1);
+$gramm = (($binaryLength > 6 && ($righe & (1 << 6))) == 1);
 
 if (isset($_POST['opzioni']))
     $opzioni = $_POST['opzioni'];
@@ -55,6 +56,7 @@ if ($ris = mysqli_query($conn, "$sql")) {
     echo "<div class=\"text-block\">";
     echo "<div class=\"line\"><b>Greco</b></div>";
     if ($traslit) echo "<div class=\"line\"><b>Traslitterazione</b></div>";
+    if ($gramm) echo "<div class=\"line\"><b>Grammatica</b></div>";
     if ($rad) echo "<div class=\"line\"><b>Lemma</b></div>";
     if ($radtraslit) echo "<div class=\"line\"><b>Lemma traslitt.</b></div>";
     if ($nr06) echo "<div class=\"line\"><b>NR06</b></div>";
@@ -82,6 +84,9 @@ if ($ris = mysqli_query($conn, "$sql")) {
           echo "<div class=\"$class\">" .($inizioVersetto?"<div class=\"versetto\">".$row["Versetto"]."</div> ":""). $p . "</div>";
           if ($traslit) {
             echo "<div class=\"line\">" . traslitterare($row["Greco"]). "</div>";
+          }
+          if ($gramm) {
+            echo "<div class=\"line\">" . mostraGrammatica($row["Grammatica"]). "</div>";
           }
           if ($rad) {
             $radMapped = strtr($row["Radice"], $mapping);
@@ -123,6 +128,163 @@ if ($ris = mysqli_query($conn, "$sql")) {
 else {
     echo "<p>Errore nel collegamento al database.</p>";
     echo $sql;
+}
+
+function mostraGrammatica(string $text): string
+{
+    $ann="";
+    $textMG = $text;
+    if ($text[0]=='C') {
+        $textMG="Cong.";$ann="Congiunzione";
+    }
+    if ($text[0]=='P') {
+        $textMG="Prep.";$ann="Preposizione";
+    }
+    if ($text[0]=='X') {
+        $textMG="Part.";$ann="Particella";
+    }
+    if ($text[0]=='D') {
+        $comp=0;
+        if ($text[9]=='C') $comp=1;
+        $textMG="Avv.";$ann="Avverbio";
+        if ($comp==1) {$textMG.=" comp.";$ann.=" comparativo";}
+    }
+    if ($text[0]=='I') {
+        $textMG="Inter.";$ann="Interiezione";
+    }
+    if (substr($text,0,2)=="V-") {
+        if ($text[5]=='N') {
+            $ann="Verbo ".tempo($text[3])." ".forma($text[4])." infinito";
+            $textMG="Vb. ".$text[3].$text[4]." inf.";
+        }
+        if ($text[5]=='I' || $text[5]=='S' || $text[5]=='D' || $text[5]=='O') {
+            $ann="Verbo ".persona($text[2])." ".numero($text[7])." ".tempo($text[3])." ".forma($text[4])." ".tense($text[5]);
+            $textMG="Vb. ".$text[2].$text[7].$text[3].$text[4]." ".tense2($text[5]);
+        }
+        if ($text[5]=='P') {
+            $ann="Verbo ".tempo($text[3])." ".forma($text[4])." ".genere($text[8])." ".numero($text[7])." ".caso($text[6])." participio";
+            $textMG="Vb. ".$text[3].$text[4].$text[8].$text[7].$text[6]." part.";
+        }
+    }
+    if (substr($text,0,2)=="N-") {
+        $ann="Sostantivo ".genere($text[8])." ".numero($text[7])." ".caso($text[6]);
+        $textMG="Sost. ".$text[8].$text[7].$text[6];
+    }
+    if (substr($text,0,2)=="A-") {
+        $comp=0;if ($text[9]=='C') $comp=1;
+        $sup=0;if ($text[9]=='S') $sup=1;
+        $ann="Aggettivo ".genere($text[8])." ".numero($text[7])." ".caso($text[6]);
+        $textMG="Agg. ".$text[8].$text[7].$text[6];
+        if ($comp==1) {$textMG.=" comp.";$ann.=" comparativo";}
+        if ($sup==1) {$textMG.=" sup.";$ann.=" superlativo";}
+    }
+    if (substr($text,0,2)=="RA") {
+        $ann="Articolo definitivo ".genere($text[8])." ".numero($text[7])." ".caso($text[6]);
+        $textMG="Art. def. ".$text[8].$text[7].$text[6];
+    }
+    if (substr($text,0,2)=="RD") {
+        $ann="Pronome dimostrativo ".genere($text[8])." ".numero($text[7])." ".caso($text[6]);
+        $textMG="Pron. dim. ".$text[8].$text[7].$text[6];
+    }
+    if (substr($text,0,2)=="RI") {
+        $ann="Pronome interrogativo ".genere($text[8])." ".numero($text[7])." ".caso($text[6]);
+        $textMG="Pron. int. ".$text[8].$text[7].$text[6];
+    }
+    if (substr($text,0,2)=="RR") {
+        $ann="Pronome relativo ".genere($text[8])." ".numero($text[7])." ".caso($text[6]);
+        $textMG="Pron. rel. ".$text[8].$text[7].$text[6];
+    }
+    if (substr($text,0,2)=="RP") {
+        $ann="Pronome personale ".($text[8]!="-"?genere($text[8])." ":"").numero($text[7])." ".caso($text[6]);
+        $textMG="Pron. pers. ".($text[8]!="-"?$text[8]:"").$text[7].$text[6];
+    }
+    return "<span class='analysis-code' data-analysis='".$ann."'>".$textMG."</span>";
+}
+
+function persona(string $g): string
+{
+switch($g) {
+case '1': return "1a";
+case '2': return "2a";
+case '3': return "3a";
+}
+return "";
+}
+
+function tempo(string $g): string
+{
+switch($g) {
+case 'P': return "presente";
+case 'A': return "aoristo";
+case 'X': return "perfetto";
+case 'F': return "futuro";
+case 'I': return "imperfetto";
+case 'Y': return "piuccheperfetto";
+}
+return "";
+}
+
+function tense(string $g): string
+{
+switch($g) {
+case 'I': return "indicativo";
+case 'S': return "congiuntivo";
+case 'D': return "imperativo";
+case 'O': return "ottativo";
+}
+return "";
+}
+
+function tense2(string $g): string
+{
+switch($g) {
+case 'I': return "ind.";
+case 'S': return "cong.";
+case 'D': return "imp.";
+case 'O': return "ott.";
+}
+return "";
+}
+
+function forma(string $g): string
+{
+switch($g) {
+case 'A': return "attivo";
+case 'M': return "medio";
+case 'P': return "passivo";
+}
+return "";
+}
+
+function genere(string $g): string
+{
+switch($g) {
+case 'M': return "maschile";
+case 'F': return "femminile";
+case 'N': return "neutro";
+}
+return "";
+}
+
+function numero(string $g): string
+{
+switch($g) {
+case 'S': return "singolare";
+case 'P': return "plurale";
+}
+return "";
+}
+
+function caso(string $g): string
+{
+switch($g) {
+case 'N': return "nominativo";
+case 'V': return "vocativo";
+case 'A': return "accusativo";
+case 'G': return "genitivo";
+case 'D': return "dativo";
+}
+return "";
 }
 
 function traslitterare(string $text): string

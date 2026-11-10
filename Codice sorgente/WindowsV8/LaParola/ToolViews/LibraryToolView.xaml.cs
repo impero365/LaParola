@@ -19,7 +19,7 @@ using System.Windows.Input;
 
 namespace LaParola.ToolViews
 {
-    // TODO2 for each text, buttons to: esportare, unire 2, cambia sola lettura, creare file unico, aggiungere radici
+    // TODO2 for each text, buttons to: unire 2, cambia sola lettura (se Bloccato=0 or 1), aggiungere radici
 
     /// <summary>
     /// Logica di interazione per LibraryToolView.xaml
@@ -100,8 +100,7 @@ namespace LaParola.ToolViews
 
         private void HelpFlyout_OnHelpClicked(object sender, RoutedEventArgs e)
         {
-            // TODO2: Open correct help section
-            MessageBox.Show("Open Help Centre");
+            MainWindow.MostraGuida((string)(Application.Current.TryFindResource("BibliotecaTitolo") ?? "Library"));
         }
 
         private void DataGridToolTip_Opened(object sender, RoutedEventArgs e)
@@ -307,7 +306,7 @@ namespace LaParola.ToolViews
                         };
 
                         // Show the dialog box. ShowDialog() returns a nullable boolean (bool?).
-                        bool? result = openFileDialog.ShowDialog();
+                        bool? result = openFileDialog.ShowDialog(Application.Current.MainWindow);
 
                         // If the user clicked OK, import the selected file path
                         if (result == true)
@@ -315,7 +314,7 @@ namespace LaParola.ToolViews
                             string? percorso = Path.GetDirectoryName(openFileDialog.FileName);
                             if (!string.IsNullOrEmpty(percorso))
                             {
-                                MainWindow.settings.UltimaCartellaImportare = openFileDialog.FileName;
+                                MainWindow.settings.UltimaCartellaImportare = percorso;
                             }
 
                             using StatusTask status = StatusService.AvviaTask((string)(Application.Current.TryFindResource("BibliotecaAggiungiLibriInCorso") ?? "Importing the file"));
@@ -340,14 +339,14 @@ namespace LaParola.ToolViews
                         break;
 
                     case "ImportaRtf":
-                        //tipo = TipoImportazione.ImportaRtf;
+                        tipo = TipoImportazione.ImportaRtf;
                         string ultimaCartellaImportareRtf = MainWindow.settings.UltimaCartellaImportareRtf;
                         if (string.IsNullOrEmpty(ultimaCartellaImportareRtf))
                             ultimaCartellaImportareRtf = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
                         OpenFolderDialog dialogCartella = new()
                         {
-                            Title = (string)(Application.Current.TryFindResource("BibliotecaAggiungiLibriCartellaDialogoTitolo") ?? "Importing the file"),
+                            Title = (string)(Application.Current.TryFindResource("BibliotecaAggiungiLibriCartellaDialogoTitolo") ?? "Select the directory that contains the files to import"),
                             InitialDirectory = ultimaCartellaImportareRtf,
                         };
 
@@ -449,7 +448,7 @@ namespace LaParola.ToolViews
                             string? percorso = Path.GetDirectoryName(openFileDialogPDF.FileName);
                             if (!string.IsNullOrEmpty(percorso))
                             {
-                                MainWindow.settings.UltimaCartellaImportarePDF = openFileDialogPDF.FileName;
+                                MainWindow.settings.UltimaCartellaImportarePDF = percorso;
                             }
 
                             MetaData datiPDF = new();
@@ -489,7 +488,7 @@ namespace LaParola.ToolViews
                                     ISBN = dialogPDF.Isbn,
                                     Lingua = dialogPDF.Lingua,
                                     VersioneDelleNote = dialogPDF.VersioneDiNote,
-                                    PDFComeLibro = dialogPDF.ComeLibro.IsChecked==true,
+                                    PDFComeLibro = dialogPDF.ComeLibro.IsChecked == true,
                                     FileDaAnalizzare = openFileDialogPDF.FileName,
                                     NomeVersioneUtilizzato = ImportaService.ImpostaNomeFileLaParolaDaFileOrigine(dialogPDF.Titolo),
                                     Tipo = TipoImportazione.ImportaPDF
@@ -568,6 +567,80 @@ namespace LaParola.ToolViews
                 }
             }
         }
+        private async void EsportaBiblioteca_Click(object sender, RoutedEventArgs e)
+        {
+            EsportaBiblioteca dialog = new()
+            {
+                Owner = Window.GetWindow(this), // Sets parent window for proper styling/centering
+                Informazioni = MainWindow.settings.EsportaBibliotecaInformazioni,
+                Ordine = MainWindow.settings.EsportaBibliotecaOrdine,
+                Formato = MainWindow.settings.EsportaBibliotecaFormato,
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                // Retrieve the results
+                string informazioni = dialog.Informazioni;
+                int ordine = dialog.Ordine;
+                int formato = dialog.Formato;
+                MainWindow.settings.EsportaBibliotecaInformazioni = informazioni;
+                MainWindow.settings.EsportaBibliotecaOrdine = ordine;
+                MainWindow.settings.EsportaBibliotecaFormato = formato;
+
+                string cartellaEsportare = MainWindow.settings.EsportaBibliotecaCartella;
+                if (string.IsNullOrEmpty(cartellaEsportare))
+                    cartellaEsportare = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string titoloDialogo = (string)(Application.Current.TryFindResource("EsportaBibliotecaFile") ?? "Save the File As:");
+                string filtro = formato switch
+                {
+                    // RTF
+                    1 => (string)(Application.Current.TryFindResource("EsportaBibliotecaFileRTFFiltro") ?? "RTF files (*.rtf)|*.rtf|All files (*.*)|*.*"),
+                    // CSV
+                    2 => (string)(Application.Current.TryFindResource("EsportaBibliotecaFileCSVFiltro") ?? "CSV files (*.csv)|*.csv|All files (*.*)|*.*"),
+                    // HTML
+                    3 => (string)(Application.Current.TryFindResource("EsportaBibliotecaFileHTMLFiltro") ?? "HTML files (*.html)|*.html|All files (*.*)|*.*"),
+                    // XML
+                    4 => (string)(Application.Current.TryFindResource("EsportaBibliotecaFileXMLFiltro") ?? "XML files (*.xml)|*.xml|All files (*.*)|*.*"),
+                    // incluso case 0, testo
+                    _ => (string)(Application.Current.TryFindResource("EsportaBibliotecaFileTXTFiltro") ?? "Text files (*.txt)|*.txt|All files (*.*)|*.*"),
+                };
+                SaveFileDialog saveFileDialog = new()
+                {
+                    Title = titoloDialogo,
+                    Filter = filtro,
+                    InitialDirectory = cartellaEsportare
+                };
+
+                // Show the dialog box. ShowDialog() returns a nullable boolean (bool?).
+                bool? result = saveFileDialog.ShowDialog(Application.Current.MainWindow);
+
+                // If the user clicked OK, import the selected file path
+                if (result == true)
+                {
+                    string? percorso = Path.GetDirectoryName(saveFileDialog.FileName);
+                    if (!string.IsNullOrEmpty(percorso))
+                    {
+                        MainWindow.settings.EsportaBibliotecaCartella = percorso;
+                    }
+
+                    using StatusTask status = StatusService.AvviaTask((string)(Application.Current.TryFindResource("EsportaBibliotecaEsportando") ?? "Exporting the file"));
+
+                    bool successo = await EsportaBibliotecaService.EsportaBiblioteca(saveFileDialog.FileName,informazioni,ordine, formato);
+                    if (successo)
+                    {
+                        string messaggio = string.Format(CultureInfo.InvariantCulture, (string)(Application.Current.TryFindResource("EsportaBibliotecaEsportato") ?? "The file {0} was created."), saveFileDialog.FileName);
+                        status.Update(messaggio, 100);
+                    }
+                    else
+                    {
+                        status.Update((string)(Application.Current.TryFindResource("EsportaBibliotecaErrore") ?? "Error while importing the file"), 100);
+                    }
+
+                    // Remove status bar text after 5 seconds
+                    await Task.Delay(5000);
+                }
+            }
+        }
 
         // Triggers filter recalculation on generic combo changes
         private void FilterControl_SelectionChanged(object sender, SelectionChangedEventArgs e) => _booksView?.Refresh();
@@ -591,6 +664,24 @@ namespace LaParola.ToolViews
             _booksView?.Refresh();
         }
 
+        private void BooksDataGrid_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (BooksDataGrid.SelectedItem is VersioneInformazioni selectedBook && selectedBook != null)
+            {
+                VersioneInformazioni book = selectedBook;
+                if (book.Bloccato == BloccatoTipi.Permanente)
+                {
+                    ButtonCancella.Visibility = Visibility.Collapsed;
+                    ButtonRinomina.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    ButtonCancella.Visibility = Visibility.Visible;
+                    ButtonRinomina.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
         private void BooksDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             // Ensure the user double-clicked an actual row, not empty space or column headers
@@ -610,13 +701,29 @@ namespace LaParola.ToolViews
                             int nNote = MainWindow.Testi.NumeroNote(testo);
                             int nNoteTitolo = MainWindow.Testi.NumeroNoteConTitolo(testo);
                             if (nNoteTitolo < nNote / 2)
+                            {
                                 MainWindow.VisualizzaCommentario(testo);
+                            }
                             else
-                                MainWindow.VisualizzaDizionario(testo);
+                            {
+                                if (MainWindow.Testi.GetNoteInOrdine(testo).Count > 0 && !string.IsNullOrEmpty(MainWindow.Testi.GetNoteInOrdine(testo)[0]))
+                                    MainWindow.VisualizzaLibro(testo);
+                                else
+                                    MainWindow.VisualizzaDizionario(testo);
+                            }
                         }
                         catch { }
                     }
                 }
+            }
+        }
+
+        private void ButtonGuida_Click(object sender, RoutedEventArgs e)
+        {
+            // Get the currently selected item from the DataGrid
+            if (BooksDataGrid.SelectedItem is VersioneInformazioni selectedBook)
+            {
+                MainWindow.MostraGuida(selectedBook.Nome);
             }
         }
 
@@ -700,7 +807,7 @@ namespace LaParola.ToolViews
                         nuovoNomeTesto = selectedBook.Nome + count.ToString(CultureInfo.InvariantCulture);
                     }
 
-                    string cartella = Path.GetDirectoryName(SettingsService.ResolveSettingsPath()) + Path.DirectorySeparatorChar;
+                    string cartella = Path.GetDirectoryName(SettingsService.SettingsPath) + Path.DirectorySeparatorChar;
                     count = 1;
                     string nuovoNomeFile = cartella + Path.GetFileNameWithoutExtension(vecchioNome) + count.ToString(CultureInfo.InvariantCulture) + Path.GetExtension(vecchioNome);
                     while (File.Exists(nuovoNomeFile))
@@ -720,6 +827,61 @@ namespace LaParola.ToolViews
                 {
                     string messaggio = string.Format((string)(Application.Current.TryFindResource("BibliotecaCopiaErrore") ?? $"Error copying text: {{0}}."), exc);
                     MessageBoxLPN.Show(Window.GetWindow(this), messaggio, (string)(Application.Current.TryFindResource("Errore") ?? "Error"));
+                }
+            }
+        }
+
+        private async void ButtonEsporta_Click(object sender, RoutedEventArgs e)
+        {
+            if (BooksDataGrid.SelectedItem is VersioneInformazioni versione)
+            {
+                // CASO 1: L'utente ha fatto clic sul pulsante principale
+                if (sender is Button bottone)
+                {
+                    if (bottone.ContextMenu != null)
+                    {
+                        TestoTipi tipo = versione.Tipo;
+                        bool tipoBibbia = ((tipo & TestoTipi.Bibbia) == TestoTipi.Bibbia);
+
+                        // Allinea il menu esattamente sotto il pulsante
+                        bottone.ContextMenu.PlacementTarget = bottone;
+                        // Forza l'apertura del menu a comparsa
+                        bottone.ContextMenu.IsOpen = true;
+
+                        EsportaOSIS.Visibility = tipoBibbia ? Visibility.Visible : Visibility.Collapsed;
+                        EsportaZefania.Visibility = tipoBibbia ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                }
+
+                // CASO 2: L'utente ha cliccato su una delle opzioni del menu
+                else if (sender is MenuItem voceMenu)
+                {
+                    // Recuperiamo il Tag identificativo
+                    string tagSelezionato = voceMenu.Tag?.ToString() ?? "";
+                    TipoEsportazione tipo = TipoEsportazione.Nessuno;
+
+                    switch (tagSelezionato)
+                    {
+                        case "OSIS":
+                            tipo = TipoEsportazione.EsportaOSIS;
+                            break;
+                        case "Zefania":
+                            tipo = TipoEsportazione.EsportaZefania;
+                            break;
+                        case "Android":
+                            tipo = TipoEsportazione.EsportaAndroid;
+                            break;
+                        case "File":
+                            tipo = TipoEsportazione.EsportaFileSingolo;
+                            break;
+                        case "Files":
+                            tipo = TipoEsportazione.EsportaFileMultipli;
+                            break;
+                        default:
+                            // Gestione di sicurezza se un Tag dovesse mancare o essere errato
+                            break;
+                    }
+                    EsportaService.EsportaTesto(versione, tipo);
                 }
             }
         }
