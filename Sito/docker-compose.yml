@@ -47,7 +47,9 @@ services:
     # Extensions and ini settings are applied on container start.
     command: >
       sh -c "
-        php -m | grep -q mysqli || docker-php-ext-install -j\$(nproc) mysqli &&
+        apt update &&
+        apt install libicu-dev -y &&
+        php -m | grep -q mysqli || docker-php-ext-install -j\$(nproc) mysqli intl &&
         a2enmod rewrite headers &&
         echo 'short_open_tag=On' > /usr/local/etc/php/conf.d/99-short-tags.ini &&
         echo 'upload_max_filesize=32M' > /usr/local/etc/php/conf.d/99-uploads.ini &&
